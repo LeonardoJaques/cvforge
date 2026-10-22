@@ -43,7 +43,7 @@
     </div>
     <section class="saved-comparisons" *ngIf="comparisons.length" aria-labelledby="saved-comparisons-title">
       <div class="saved-comparisons-heading"><h3 id="saved-comparisons-title">{{ i18n.text('savedComparisons') }}</h3><button type="button" class="text-action" (click)="loadComparisons()">{{ i18n.text('refreshComparisons') }} ↻</button></div>
-      <div class="comparison-list"><button class="comparison-card" type="button" *ngFor="let item of comparisons" (click)="openComparison(item)"><span class="comparison-score">{{ item.result.matchScore }}%</span><span class="comparison-copy"><b>{{ item.profileLabel }}</b><span>{{ item.jobText }}</span><small>{{ formatDate(item.createdAt) }}</small></span><span class="comparison-open">↗</span></button></div>
+      <div class="comparison-list"><button class="comparison-card" type="button" *ngFor="let item of comparisons" (click)="openComparison(item)"><span class="comparison-score">{{ item.savedScore }}%</span><span class="comparison-copy"><b>{{ item.profileLabel }}</b><span>{{ item.jobText }}</span><small>{{ formatDate(item.createdAt) }}</small></span><span class="comparison-open">↗</span></button></div>
     </section>
     <p class="import-error" role="alert" *ngIf="comparisonError && !jobAnalysis">{{ comparisonError }}</p>
   </section>
