@@ -1,0 +1,19 @@
+spring:
+  # The key and model are provided to the API container through environment variables.
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+  datasource:
+    url: jdbc:postgresql://db:5432/cvforge
+    username: cvforge
+    password: ${POSTGRES_PASSWORD:cvforge_password}
+
+  flyway:
+    enabled: true
+
+# Logging ambiente container
+logging:
+  level:
+    com.cvforge: INFO
+    org.flywaydb: INFO

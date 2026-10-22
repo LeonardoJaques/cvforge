@@ -1,0 +1,79 @@
+# CVForge — Infraestrutura Docker (ambiente local + produção)
+# Certifique-se de que a rede "web" do Traefik existe antes de subir os serviços.
+
+services:
+  # ========== PostgreSQL — persistência de currículos ==========
+  db:
+    image: postgres:16-alpine
+    container_name: cvforge-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cvforge
+      POSTGRES_USER: cvforge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - cvforge_db_data:/var/lib/postgresql/data
+    networks:
+      - cvforge-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cvforge -d cvforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ========== API — Spring Boot (Java 21 LTS) ==========
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cvforge-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/cvforge
+      SPRING_DATASOURCE_USERNAME: cvforge
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRICK_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_FLYWAY_ENABLED: "true"
+      LLDAP_HTTP_URL: ${LLDAP_HTTP_URL}
+      LLDAP_BASE_DN: ${LLDAP_LDAP_BASE_DN}
+      JWT_SECRET: ${JWT_SECRET}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openrouter/free}
+    ports:
+      - "8081:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cvforge-net
+      - web
+
+  # ========== Frontend — Angular (nginx) ==========
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cvforge-frontend
+    restart: unless-stopped
+    ports:
+      - "4201:80"
+    depends_on:
+      - api
+    networks:
+      - web
+
+# ========== Rede dedicada (serviços internos) ==========
+networks:
+  web:
+    external: true    # Rede existente do Traefik
+  cvforge-net:
+    driver: bridge
+
+# ========== Volume de persistência do banco ==========
+volumes:
+  cvforge_db_data:
+    driver: local
