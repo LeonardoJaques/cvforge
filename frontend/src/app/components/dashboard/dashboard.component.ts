@@ -6,6 +6,10 @@ import { JobComparison, JobMatchResult, ResumeLayout, ResumeRecord } from '../..
 import { I18nService } from '../../services/i18n.service';
 import { ResumeService } from '../../services/resume.service';
 
+interface SavedComparisonCard extends JobComparison {
+  savedScore: number;
+}
+
 @Component({
   selector: 'app-dashboard', standalone: true, imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './dashboard.component.html', styleUrl: './dashboard.component.scss'
@@ -33,14 +37,14 @@ export class DashboardComponent implements OnInit {
   analyzingJob = false;
   jobAnalysis: JobMatchResult | null = null;
   jobError = '';
-  comparisons: JobComparison[] = [];
+  comparisons: SavedComparisonCard[] = [];
   savingComparison = false;
   comparisonSaved = false;
   comparisonError = '';
 
   ngOnInit(): void { this.load(); this.loadComparisons(); }
   loadComparisons(): void {
-    this.resumesApi.listJobComparisons().subscribe({ next: data => this.comparisons = data ?? [], error: () => this.comparisonError = this.i18n.text('comparisonLoadError') });
+    this.resumesApi.listJobComparisons().subscribe({ next: data => this.comparisons = (data ?? []).map(item => this.comparisonSnapshot(item)), error: () => this.comparisonError = this.i18n.text('comparisonLoadError') });
   }
   load(): void {
     this.loading = true; this.error = false;
@@ -128,12 +132,12 @@ export class DashboardComponent implements OnInit {
     };
     if (this.matchSource === 'saved' && this.matchResumeId) request.resumeId = this.matchResumeId;
     this.resumesApi.saveJobComparison(request).subscribe({
-      next: saved => { this.comparisons = [saved, ...this.comparisons.filter(item => item.id !== saved.id)]; this.savingComparison = false; this.comparisonSaved = true; },
+      next: saved => { const snapshot = this.comparisonSnapshot(saved); this.comparisons = [snapshot, ...this.comparisons.filter(item => item.id !== saved.id)]; this.savingComparison = false; this.comparisonSaved = true; },
       error: () => { this.savingComparison = false; this.comparisonError = this.i18n.text('comparisonSaveError'); }
     });
   }
-  openComparison(item: JobComparison): void {
-    this.jobAnalysis = item.result; this.jobDescription = item.jobText; this.comparisonSaved = true; this.comparisonError = '';
+  openComparison(item: SavedComparisonCard): void {
+    this.jobAnalysis = this.copyResult(item.result); this.jobDescription = item.jobText; this.comparisonSaved = true; this.comparisonError = '';
     if (item.resumeId && this.resumes.some(resume => resume.id === item.resumeId)) { this.matchSource = 'saved'; this.matchResumeId = item.resumeId; }
     const panel = document.querySelector('.job-match-panel');
     if (panel) window.scrollTo({ top: panel.getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
@@ -142,5 +146,19 @@ export class DashboardComponent implements OnInit {
     if (!value) return '—';
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat(this.i18n.lang() === 'pt' ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+  }
+  private comparisonSnapshot(item: JobComparison): SavedComparisonCard {
+    const result = this.copyResult(item.result);
+    return { ...item, result, savedScore: result.matchScore };
+  }
+  private copyResult(result: JobMatchResult): JobMatchResult {
+    return {
+      ...result,
+      matchingRequirements: (result.matchingRequirements ?? []).map(item => ({ ...item })),
+      missingRequirements: (result.missingRequirements ?? []).map(item => ({ ...item })),
+      keywords: [...(result.keywords ?? [])],
+      resumeSuggestions: [...(result.resumeSuggestions ?? [])],
+      interviewQuestions: [...(result.interviewQuestions ?? [])]
+    };
   }
 }
