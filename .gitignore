@@ -1,24 +1,30 @@
-# Backend
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+JWT_SECRET
+POSTGRES_PASSWORD
+gitea-pat.txt
+*.pem
+*.key
+*.p12
+*.jks
+
+# Local data, backups, and build output
+data/
+backups/
+docker-compose.server.yml
+*.tar
+*.tar.gz
 backend/target/
 backend/*.jar
-
-# Frontend
 frontend/node_modules/
 frontend/dist/
 
-# IDE
+# IDE and OS
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS
 .DS_Store
 Thumbs.db
-
-# Secrets
-.env
-gitea-pat.txt
-
-# Logs
-*.log

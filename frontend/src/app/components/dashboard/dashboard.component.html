@@ -30,6 +30,7 @@
       <label class="field"><span>{{ i18n.text('matchResumeSource') }}</span><select [(ngModel)]="matchSource"><option value="text">{{ i18n.text('pastedProfileText') }}</option><option value="saved">{{ i18n.text('savedResume') }}</option></select></label>
       <label class="field" *ngIf="matchSource === 'saved'"><span>{{ i18n.text('chooseResume') }}</span><select [(ngModel)]="matchResumeId"><option [ngValue]="null">{{ i18n.text('chooseResume') }}</option><option *ngFor="let item of resumes" [ngValue]="item.id">{{ item.title || data(item).name }}</option></select></label>
       <label class="field" *ngIf="matchSource === 'text'"><span>{{ i18n.text('profileTextLabel') }}</span><textarea [(ngModel)]="matchProfileText" rows="5" maxlength="20000" [placeholder]="i18n.text('profileTextPlaceholder')"></textarea></label>
+      <label class="field"><span>{{ i18n.text('jobCompany') }}</span><input [(ngModel)]="companyName" maxlength="180" [placeholder]="i18n.text('jobCompanyPlaceholder')"></label>
       <label class="field"><span>{{ i18n.text('jobDescription') }}</span><textarea [(ngModel)]="jobDescription" rows="7" maxlength="25000" [placeholder]="i18n.text('jobDescriptionPlaceholder')"></textarea></label>
       <p class="privacy-note">{{ i18n.text('openRouterDataNotice') }}</p>
       <button class="button button-primary analyze-button" type="button" [disabled]="analyzingJob" (click)="analyzeJob()"><span class="spinner" *ngIf="analyzingJob" aria-hidden="true"></span>{{ analyzingJob ? i18n.text('analyzingJob') : i18n.text('analyzeJob') }}<span *ngIf="!analyzingJob">↗</span></button>
@@ -43,7 +44,7 @@
     </div>
     <section class="saved-comparisons" *ngIf="comparisons.length" aria-labelledby="saved-comparisons-title">
       <div class="saved-comparisons-heading"><h3 id="saved-comparisons-title">{{ i18n.text('savedComparisons') }}</h3><button type="button" class="text-action" (click)="loadComparisons()">{{ i18n.text('refreshComparisons') }} ↻</button></div>
-      <div class="comparison-list"><button class="comparison-card" type="button" *ngFor="let item of comparisons" (click)="openComparison(item)"><span class="comparison-score">{{ item.savedScore }}%</span><span class="comparison-copy"><b>{{ item.profileLabel }}</b><span>{{ item.jobText }}</span><small>{{ formatDate(item.createdAt) }}</small></span><span class="comparison-open">↗</span></button></div>
+      <div class="comparison-list"><button class="comparison-card" type="button" *ngFor="let item of comparisons" (click)="openComparison(item)"><span class="comparison-score">{{ item.savedScore }}%</span><span class="comparison-copy"><b>{{ item.profileLabel }}</b><span class="comparison-company">{{ item.result.companyName || i18n.text('companyNotProvided') }}</span><span>{{ item.jobText }}</span><small>{{ i18n.text('savedOn') }} {{ formatDate(item.createdAt) }}</small></span><span class="comparison-open">↗</span></button></div>
     </section>
     <p class="import-error" role="alert" *ngIf="comparisonError && !jobAnalysis">{{ comparisonError }}</p>
   </section>

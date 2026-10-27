@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.cvforge.entity.JobComparison;
 import com.cvforge.repository.JobComparisonRepository;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +22,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/jobs")
 public class JobMatchController {
+    private static final Logger log = LoggerFactory.getLogger(JobMatchController.class);
     private final JobMatchService jobMatch;
     private final JobComparisonRepository comparisons;
     private final ObjectMapper mapper;
@@ -31,8 +34,24 @@ public class JobMatchController {
     public ResponseEntity<?> analyze(@RequestBody JobMatchService.Request request,
                                      @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
         try { return ResponseEntity.ok(jobMatch.analyze(request, userId)); }
-        catch (IllegalArgumentException e) { return ResponseEntity.badRequest().body(Map.of("message", e.getMessage())); }
-        catch (IllegalStateException e) { return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("message", e.getMessage())); }
+        catch (IllegalArgumentException e) {
+            log.warn("CVFORGE_JOB_ANALYSIS_REJECTED reason={}", safeLogMessage(e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+        catch (IllegalStateException e) {
+            log.error("CVFORGE_JOB_ANALYSIS_FAILED reason={}", safeLogMessage(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("message", e.getMessage()));
+        }
+        catch (Exception e) {
+            log.error("CVFORGE_JOB_ANALYSIS_UNEXPECTED exception_type={}", e.getClass().getName());
+            return ResponseEntity.internalServerError().body(Map.of("message", "Não foi possível analisar esta vaga."));
+        }
+    }
+
+    private String safeLogMessage(String message) {
+        if (message == null || message.isBlank()) return "unknown";
+        String singleLine = message.replaceAll("[\\r\\n\\t]", " ");
+        return singleLine.substring(0, Math.min(240, singleLine.length()));
     }
 
     @PostMapping("/comparisons")

@@ -11,7 +11,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/cvforge
     username: cvforge
-    password: ${POSTGRES_PASSWORD:cvforge_password}
+    password: ${POSTGRES_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: update

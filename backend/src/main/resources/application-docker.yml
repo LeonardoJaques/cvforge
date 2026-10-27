@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:postgresql://db:5432/cvforge
     username: cvforge
-    password: ${POSTGRES_PASSWORD:cvforge_password}
+    password: ${POSTGRES_PASSWORD:}
 
   flyway:
     enabled: true

@@ -35,6 +35,7 @@ export interface ResumeRecord {
   updatedAt?: string;
 }
 export interface JobMatchResult {
+  companyName?: string;
   matchScore: number;
   level: string;
   summary: string;

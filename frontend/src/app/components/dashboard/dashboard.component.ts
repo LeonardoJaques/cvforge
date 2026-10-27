@@ -34,6 +34,7 @@ export class DashboardComponent implements OnInit {
   matchResumeId: number | null = null;
   matchProfileText = '';
   jobDescription = '';
+  companyName = '';
   analyzingJob = false;
   jobAnalysis: JobMatchResult | null = null;
   jobError = '';
@@ -128,7 +129,7 @@ export class DashboardComponent implements OnInit {
     this.savingComparison = true; this.comparisonError = ''; this.comparisonSaved = false;
     const request: { resumeId?: number; profileLabel: string; jobText: string; result: JobMatchResult; language: 'pt' | 'en' } = {
       profileLabel: this.matchSource === 'saved' ? (this.resumes.find(item => item.id === this.matchResumeId)?.title || this.i18n.text('savedResume')) : this.i18n.text('pastedProfileText'),
-      jobText: this.jobDescription.trim(), result: this.jobAnalysis, language: this.i18n.lang()
+      jobText: this.jobDescription.trim(), result: { ...this.jobAnalysis, companyName: this.companyName.trim() || this.extractCompanyName(this.jobDescription) }, language: this.i18n.lang()
     };
     if (this.matchSource === 'saved' && this.matchResumeId) request.resumeId = this.matchResumeId;
     this.resumesApi.saveJobComparison(request).subscribe({
@@ -137,10 +138,28 @@ export class DashboardComponent implements OnInit {
     });
   }
   openComparison(item: SavedComparisonCard): void {
-    this.jobAnalysis = this.copyResult(item.result); this.jobDescription = item.jobText; this.comparisonSaved = true; this.comparisonError = '';
+    this.jobAnalysis = this.copyResult(item.result); this.jobDescription = item.jobText; this.companyName = item.result.companyName ?? ''; this.comparisonSaved = true; this.comparisonError = '';
     if (item.resumeId && this.resumes.some(resume => resume.id === item.resumeId)) { this.matchSource = 'saved'; this.matchResumeId = item.resumeId; }
     const panel = document.querySelector('.job-match-panel');
     if (panel) window.scrollTo({ top: panel.getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
+  }
+  private extractCompanyName(text: string): string {
+    const patterns = [
+      /(?:^|\n)\s*Logo\s+da\s+empresa\s+([^\r\n.]+)\.?/i,
+      /(?:^|\n)\s*Estatísticas[^\r\n]*?\bsobre\s+a\s+empresa\s+([^\r\n]+)/i,
+      /(?:^|\n)\s*A\s+empresa\s+(.+?)\s+(?:contrata|contratou|está\s+contratando)\b[^\r\n]*/i,
+      /(?:^|\n)\s*([\p{L}][\p{L}\p{N}&.'’ -]{1,80}?),\s+a\s+[\p{L}][\p{L}\p{N}&.'’ -]*\s+company\b[^\r\n]*/iu,
+      /(?:^|\n)\s*(?:nome\s+da\s+empresa|empresa|companhia|company|employer)\s*[:|–—-]\s*([^\r\n]+)/i,
+      /(?:^|\n)\s*(?:sobre\s+(?:a\s+)?(?:empresa|companhia|company)|about\s+(?:the\s+)?company)\s*[:|–—-]\s*([^\r\n]+)/i,
+      /(?:^|\n)\s*(?:empresa|company)\s*[:|]?\s*\r?\n\s*([^\r\n]+)/i
+    ];
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      const candidate = match?.[1]?.split(/\s+[|–—]\s+|\s+-\s+(?=(?:vaga|oportunidade|job|position)\b)/i)[0]
+        .replace(/\s+/g, ' ').trim().replace(/[.,;:|–—-]+$/, '').trim();
+      if (candidate && candidate.length <= 180) return candidate;
+    }
+    return '';
   }
   formatDate(value: string | undefined): string {
     if (!value) return '—';
