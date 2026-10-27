@@ -63,4 +63,6 @@ Copy .env.example to .env, replace all placeholders, configure a trusted reverse
 
 ## Licença
 
-Nenhuma licença foi definida ainda. Consulte o mantenedor antes de reutilizar ou redistribuir o código.
+Este projeto está licenciado sob a **PolyForm Noncommercial License 1.0.0**. Uso, modificação e redistribuição são permitidos apenas para fins não comerciais, conforme os termos em [LICENSE](LICENSE). Qualquer uso comercial exige autorização prévia e por escrito do mantenedor. Para solicitar permissão comercial, entre em contato pelo perfil LeonardoJaques no GitHub.
+
+This project is licensed under the **PolyForm Noncommercial License 1.0.0**. Use, modification, and redistribution are allowed only for noncommercial purposes under [LICENSE](LICENSE). Any commercial use requires prior written permission from the maintainer. Contact LeonardoJaques on GitHub to request commercial permission.
