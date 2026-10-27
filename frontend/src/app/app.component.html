@@ -1,0 +1,17 @@
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" routerLink="/" [attr.aria-label]="'CVForge — ' + i18n.text('navLibrary')">
+      <span class="brand-mark">C<span>F</span></span>
+      <span class="brand-name">CV<span>FORGE</span><small>CAREER STUDIO</small></span>
+    </a>
+    <nav class="main-nav" [attr.aria-label]="i18n.text('mainNav')">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">{{ i18n.text('navLibrary') }}</a>
+      <span class="nav-status"><i></i>{{ i18n.text('localWorkspace') }}</span>
+    </nav>
+    <button class="language-button" type="button" (click)="i18n.toggle()" [attr.aria-label]="i18n.text('switchLanguage')">
+      <span class="globe">◎</span>{{ i18n.lang() === 'pt' ? 'PT' : 'EN' }} <span class="chevron">⌄</span>
+    </button>
+  </header>
+  <main class="main-content"><router-outlet /></main>
+  <footer class="footer"><span>CVFORGE <b>·</b> {{ i18n.text('footer') }}</span><span class="footer-right">{{ i18n.lang() === 'pt' ? 'FEITO PARA O SEU PRÓXIMO CAPÍTULO' : 'DESIGNED FOR YOUR NEXT CHAPTER' }} <i>↗</i></span></footer>
+</div>

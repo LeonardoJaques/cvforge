@@ -1,0 +1,86 @@
+<section class="dashboard page-wrap">
+  <div class="hero-row">
+    <div class="hero-copy">
+      <div class="eyebrow"><span class="eyebrow-line"></span>{{ i18n.text('eyebrow') }}</div>
+      <h1>{{ i18n.text('title') }}</h1>
+      <p>{{ i18n.text('subtitle') }}</p>
+      <div class="hero-actions">
+        <a class="button button-primary" routerLink="/resume/new"><span class="button-plus">＋</span>{{ i18n.text('newResume') }}<span class="button-arrow">↗</span></a>
+        <input #resumePicker class="file-picker" type="file" accept=".pdf,.json,application/pdf,application/json" (change)="importFile($event)">
+        <button class="button button-outline import-button" type="button" [disabled]="importing" (click)="resumePicker.click()"><span class="spinner" *ngIf="importing" aria-hidden="true"></span>{{ importing ? i18n.text('importing') : i18n.text('importResume') }} <span *ngIf="!importing">↥</span></button>
+      </div>
+      <p class="import-error" role="alert" *ngIf="importError">{{ importError }}</p>
+      <div class="profile-text-import">
+        <label class="field"><span>{{ i18n.text('profileTextLabel') }}</span><textarea [(ngModel)]="profileText" rows="5" maxlength="20000" [placeholder]="i18n.text('profileTextPlaceholder')"></textarea></label>
+        <button class="button button-outline" type="button" [disabled]="importingProfileText" (click)="importProfileText()"><span class="spinner" *ngIf="importingProfileText" aria-hidden="true"></span>{{ importingProfileText ? i18n.text('profileImporting') : i18n.text('importProfileText') }}<span *ngIf="!importingProfileText">↥</span></button>
+        <small class="privacy-note">{{ i18n.text('profileTextHint') }}</small>
+        <p class="import-error" role="alert" *ngIf="profileTextImportError">{{ profileTextImportError }}</p>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+      <div class="folio"><div class="folio-top"><i></i><i></i><i></i><span>PROFILE_01.DOC</span></div><div class="folio-avatar">CV</div><div class="folio-lines"><b></b><i></i><i></i><i></i><div class="folio-chip"></div></div></div>
+      <span class="spark spark-a">✳</span><span class="spark spark-b">✦</span><span class="orbit-label">{{ i18n.text('storyFocus') }}</span>
+    </div>
+  </div>
+
+  <section class="job-match-panel" aria-labelledby="job-match-title">
+    <div class="job-match-intro"><div class="eyebrow"><span class="eyebrow-line"></span>{{ i18n.text('jobMatchEyebrow') }}</div><h2 id="job-match-title">{{ i18n.text('jobMatchTitle') }}</h2><p>{{ i18n.text('jobMatchIntro') }}</p></div>
+    <div class="job-match-form">
+      <label class="field"><span>{{ i18n.text('matchResumeSource') }}</span><select [(ngModel)]="matchSource"><option value="text">{{ i18n.text('pastedProfileText') }}</option><option value="saved">{{ i18n.text('savedResume') }}</option></select></label>
+      <label class="field" *ngIf="matchSource === 'saved'"><span>{{ i18n.text('chooseResume') }}</span><select [(ngModel)]="matchResumeId"><option [ngValue]="null">{{ i18n.text('chooseResume') }}</option><option *ngFor="let item of resumes" [ngValue]="item.id">{{ item.title || data(item).name }}</option></select></label>
+      <label class="field" *ngIf="matchSource === 'text'"><span>{{ i18n.text('profileTextLabel') }}</span><textarea [(ngModel)]="matchProfileText" rows="5" maxlength="20000" [placeholder]="i18n.text('profileTextPlaceholder')"></textarea></label>
+      <label class="field"><span>{{ i18n.text('jobCompany') }}</span><input [(ngModel)]="companyName" maxlength="180" [placeholder]="i18n.text('jobCompanyPlaceholder')"></label>
+      <label class="field"><span>{{ i18n.text('jobDescription') }}</span><textarea [(ngModel)]="jobDescription" rows="7" maxlength="25000" [placeholder]="i18n.text('jobDescriptionPlaceholder')"></textarea></label>
+      <p class="privacy-note">{{ i18n.text('openRouterDataNotice') }}</p>
+      <button class="button button-primary analyze-button" type="button" [disabled]="analyzingJob" (click)="analyzeJob()"><span class="spinner" *ngIf="analyzingJob" aria-hidden="true"></span>{{ analyzingJob ? i18n.text('analyzingJob') : i18n.text('analyzeJob') }}<span *ngIf="!analyzingJob">↗</span></button>
+      <p class="import-error" role="alert" *ngIf="jobError">{{ jobError }}</p>
+    </div>
+    <div class="job-result" *ngIf="jobAnalysis as analysis" aria-live="polite">
+      <div class="match-actions"><button class="button button-outline" type="button" [disabled]="savingComparison || comparisonSaved" (click)="saveComparison()"><span class="spinner" *ngIf="savingComparison" aria-hidden="true"></span>{{ savingComparison ? i18n.text('savingComparison') : comparisonSaved ? i18n.text('comparisonSaved') : i18n.text('saveComparison') }}</button><p class="privacy-note" *ngIf="comparisonSaved">{{ i18n.text('comparisonSavedHint') }}</p><p class="import-error" role="alert" *ngIf="comparisonError">{{ comparisonError }}</p></div>
+      <div class="match-score"><strong>{{ analysis.matchScore }}%</strong><span>{{ analysis.level }}</span></div><div class="match-summary"><h3>{{ i18n.text('matchSummary') }}</h3><p>{{ analysis.summary }}</p></div>
+      <div class="match-columns"><section><h3>{{ i18n.text('matchingRequirements') }}</h3><ul><li *ngFor="let item of analysis.matchingRequirements"><b>{{ item.requirement }}</b><span>{{ item.evidence }}</span></li></ul></section><section><h3>{{ i18n.text('missingRequirements') }}</h3><ul><li *ngFor="let item of analysis.missingRequirements"><b>{{ item.requirement }}</b><span>{{ item.reason }}</span></li></ul></section></div>
+      <section class="match-suggestions"><h3>{{ i18n.text('resumeSuggestions') }}</h3><ul><li *ngFor="let item of analysis.resumeSuggestions">{{ item }}</li></ul></section><section class="match-suggestions" *ngIf="analysis.interviewQuestions.length"><h3>{{ i18n.text('interviewQuestions') }}</h3><ul><li *ngFor="let item of analysis.interviewQuestions">{{ item }}</li></ul></section><section class="match-keywords" *ngIf="analysis.keywords.length"><h3>{{ i18n.text('jobKeywords') }}</h3><span *ngFor="let item of analysis.keywords">{{ item }}</span></section><p class="privacy-note">{{ analysis.disclaimer }}</p>
+    </div>
+    <section class="saved-comparisons" *ngIf="comparisons.length" aria-labelledby="saved-comparisons-title">
+      <div class="saved-comparisons-heading"><h3 id="saved-comparisons-title">{{ i18n.text('savedComparisons') }}</h3><button type="button" class="text-action" (click)="loadComparisons()">{{ i18n.text('refreshComparisons') }} ↻</button></div>
+      <div class="comparison-list"><button class="comparison-card" type="button" *ngFor="let item of comparisons" (click)="openComparison(item)"><span class="comparison-score">{{ item.savedScore }}%</span><span class="comparison-copy"><b>{{ item.profileLabel }}</b><span class="comparison-company">{{ item.result.companyName || i18n.text('companyNotProvided') }}</span><span>{{ item.jobText }}</span><small>{{ i18n.text('savedOn') }} {{ formatDate(item.createdAt) }}</small></span><span class="comparison-open">↗</span></button></div>
+    </section>
+    <p class="import-error" role="alert" *ngIf="comparisonError && !jobAnalysis">{{ comparisonError }}</p>
+  </section>
+
+  <div class="section-heading">
+    <div><div class="section-kicker">{{ i18n.text('updatedRecently') }}</div><h2>{{ i18n.text('navLibrary') }} <span class="count">{{ resumes.length.toString().padStart(2, '0') }}</span></h2></div>
+    <a class="text-action" routerLink="/resume/new">{{ i18n.text('newResume') }} <span>↗</span></a>
+  </div>
+
+  <div class="toolbar" *ngIf="resumes.length > 0">
+    <label class="search-box"><span aria-hidden="true">⌕</span><input [(ngModel)]="query" [attr.aria-label]="i18n.text('search')" [placeholder]="i18n.text('searchPlaceholder')"></label>
+    <div class="filter-group" role="group" [attr.aria-label]="i18n.text('allLayouts')">
+      <button type="button" [class.selected]="layoutFilter === 'ALL'" (click)="layoutFilter = 'ALL'">{{ i18n.text('allLayouts') }}</button>
+      <button type="button" [class.selected]="layoutFilter === 'ATS'" (click)="layoutFilter = 'ATS'">ATS</button>
+      <button type="button" [class.selected]="layoutFilter === 'EXECUTIVO'" (click)="layoutFilter = 'EXECUTIVO'">{{ i18n.text('layoutExecutive') }}</button>
+      <button type="button" [class.selected]="layoutFilter === 'TERMINAL'" (click)="layoutFilter = 'TERMINAL'">{{ i18n.text('layoutTerminal') }}</button><button type="button" [class.selected]="layoutFilter === 'MODERNO'" (click)="layoutFilter = 'MODERNO'">{{ i18n.text('layoutModernTitle') }}</button><button type="button" [class.selected]="layoutFilter === 'CRIATIVO'" (click)="layoutFilter = 'CRIATIVO'">{{ i18n.text('layoutCreativeTitle') }}</button><button type="button" [class.selected]="layoutFilter === 'COMPACTO'" (click)="layoutFilter = 'COMPACTO'">{{ i18n.text('layoutCompactTitle') }}</button>
+    </div>
+  </div>
+
+  <div class="loading-state" role="status" aria-live="polite" *ngIf="loading"><span class="spinner"></span>{{ i18n.text('loading') }}</div>
+  <div class="error-state" role="alert" *ngIf="error && !loading"><span>!</span><p>{{ i18n.text('loadError') }}</p><button class="button button-quiet" type="button" (click)="load()">{{ i18n.text('retry') }}</button></div>
+  <div class="delete-error" role="alert" *ngIf="deleteError">{{ i18n.text('deleteError') }}</div>
+
+  <div class="resume-grid" *ngIf="!loading && !error && filtered.length > 0">
+    <article class="resume-card" *ngFor="let item of filtered; let index = index">
+      <div class="card-cover" [class.cover-executive]="item.layout === 'EXECUTIVO'" [class.cover-terminal]="item.layout === 'TERMINAL'" [class.cover-modern]="item.layout === 'MODERNO'" [class.cover-creative]="item.layout === 'CRIATIVO'" [class.cover-compact]="item.layout === 'COMPACTO'">
+        <div class="cover-paper"><div class="cover-avatar">{{ initials(item) }}</div><div class="cover-copy"><b></b><i></i><i></i><i></i><span></span></div><div class="cover-bottom"><i></i><i></i><i></i></div></div>
+        <span class="card-index">0{{ index + 1 }}</span><span class="layout-pill">{{ layoutName(item.layout) }}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-meta"><span class="card-dot"></span>{{ i18n.text('lastUpdated') }} <time>{{ formatDate(item.updatedAt || item.createdAt) }}</time></div>
+        <h3>{{ item.title || data(item).name || i18n.text('unnamed') }}</h3><p>{{ data(item).headline || data(item).name || i18n.text('unnamed') }}</p>
+        <div class="card-actions"><a class="button button-small button-outline" [routerLink]="['/resume', item.id]">{{ i18n.text('edit') }} <span>↗</span></a><a class="icon-action" [routerLink]="['/preview', item.id]" [attr.aria-label]="i18n.text('preview')">◉</a><button class="delete-button" type="button" [disabled]="deletingId === item.id" (click)="remove(item)"><span class="spinner" *ngIf="deletingId === item.id" aria-hidden="true"></span>{{ i18n.text('delete') }}</button></div>
+      </div>
+    </article>
+  </div>
+  <div class="empty-state" *ngIf="!loading && !error && resumes.length === 0"><div class="empty-art"><span>CV</span><i>✦</i></div><h3>{{ i18n.text('emptyTitle') }}</h3><p>{{ i18n.text('emptyBody') }}</p><a class="button button-primary" routerLink="/resume/new">{{ i18n.text('createFirst') }} <span class="button-arrow">↗</span></a></div>
+  <div class="empty-search" *ngIf="!loading && !error && resumes.length > 0 && filtered.length === 0">{{ i18n.text('noResults') }}</div>
+</section>
