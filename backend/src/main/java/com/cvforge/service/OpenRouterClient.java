@@ -28,10 +28,11 @@ public class OpenRouterClient {
         this.model = model == null || model.isBlank() ? "openrouter/free" : model.trim();
     }
 
-    public String complete(String system, String user, int maxTokens) {
+    public String complete(String system, String user, int maxTokens) { return complete(system, user, maxTokens, model); }
+    public String complete(String system, String user, int maxTokens, String requestedModel) {
         if (apiKey.isBlank()) throw new IllegalStateException("A análise com IA não está configurada no backend.");
         ObjectNode body = mapper.createObjectNode();
-        body.put("model", model);
+        body.put("model", requestedModel == null || requestedModel.isBlank() ? model : requestedModel.trim());
         body.put("temperature", 0.1);
         body.put("max_tokens", maxTokens);
         var messages = body.putArray("messages");

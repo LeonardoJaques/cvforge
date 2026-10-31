@@ -21,6 +21,16 @@ public class JobComparison {
     private String resultJson;
     @Column(nullable = false, length = 2)
     private String language;
+    private Long tailoredResumeId;
+    @Column(columnDefinition = "text")
+    private String tailoredResumeJson;
+    @Column(length = 255)
+    private String tailoredResumeTitle;
+    @Column(length = 20)
+    private String tailoredResumeLayout;
+    private LocalDateTime tailoredResumeGeneratedAt;
+    @Column(length = 64)
+    private String tailoredResumeSourceHash;
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -37,5 +47,17 @@ public class JobComparison {
     public String getJobText() { return jobText; }
     public String getResultJson() { return resultJson; }
     public String getLanguage() { return language; }
+    public Long getTailoredResumeId() { return tailoredResumeId; }
+    public void setTailoredResumeId(Long value) { this.tailoredResumeId = value; }
+    public String getTailoredResumeJson() { return tailoredResumeJson; }
+    public void setTailoredResumeJson(String value) { this.tailoredResumeJson = value; }
+    public String getTailoredResumeTitle() { return tailoredResumeTitle; }
+    public void setTailoredResumeTitle(String value) { this.tailoredResumeTitle = value; }
+    public String getTailoredResumeLayout() { return tailoredResumeLayout; }
+    public void setTailoredResumeLayout(String value) { this.tailoredResumeLayout = value; }
+    public LocalDateTime getTailoredResumeGeneratedAt() { return tailoredResumeGeneratedAt; }
+    public void setTailoredResumeGeneratedAt(LocalDateTime value) { this.tailoredResumeGeneratedAt = value; }
+    public String getTailoredResumeSourceHash() { return tailoredResumeSourceHash; }
+    public void setTailoredResumeSourceHash(String value) { this.tailoredResumeSourceHash = value; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

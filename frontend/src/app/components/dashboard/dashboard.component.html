@@ -32,8 +32,13 @@
       <label class="field" *ngIf="matchSource === 'text'"><span>{{ i18n.text('profileTextLabel') }}</span><textarea [(ngModel)]="matchProfileText" rows="5" maxlength="20000" [placeholder]="i18n.text('profileTextPlaceholder')"></textarea></label>
       <label class="field"><span>{{ i18n.text('jobCompany') }}</span><input [(ngModel)]="companyName" maxlength="180" [placeholder]="i18n.text('jobCompanyPlaceholder')"></label>
       <label class="field"><span>{{ i18n.text('jobDescription') }}</span><textarea [(ngModel)]="jobDescription" rows="7" maxlength="25000" [placeholder]="i18n.text('jobDescriptionPlaceholder')"></textarea></label>
+      <div class="job-description-meta" aria-live="polite">
+        <small class="job-description-count" [class.over-limit]="jobDescriptionWordCount > maxJobWords">{{ i18n.text('jobWords') }}: {{ jobDescriptionWordCount }} / {{ maxJobWords }} · {{ i18n.text('jobCharacters') }}: {{ jobDescription.length }} / 25.000</small>
+        <small class="job-description-hint">{{ i18n.text('jobDescriptionLimitHint') }}</small>
+        <small class="job-description-warning" role="alert" *ngIf="jobDescriptionWordCount > maxJobWords">{{ i18n.text('jobDescriptionLimitExceeded') }}</small>
+      </div>
       <p class="privacy-note">{{ i18n.text('openRouterDataNotice') }}</p>
-      <button class="button button-primary analyze-button" type="button" [disabled]="analyzingJob" (click)="analyzeJob()"><span class="spinner" *ngIf="analyzingJob" aria-hidden="true"></span>{{ analyzingJob ? i18n.text('analyzingJob') : i18n.text('analyzeJob') }}<span *ngIf="!analyzingJob">↗</span></button>
+      <button class="button button-primary analyze-button" type="button" [disabled]="analyzingJob || jobDescriptionWordCount > maxJobWords" (click)="analyzeJob()"><span class="spinner" *ngIf="analyzingJob" aria-hidden="true"></span>{{ analyzingJob ? i18n.text('analyzingJob') : i18n.text('analyzeJob') }}<span *ngIf="!analyzingJob">↗</span></button>
       <p class="import-error" role="alert" *ngIf="jobError">{{ jobError }}</p>
     </div>
     <div class="job-result" *ngIf="jobAnalysis as analysis" aria-live="polite">
@@ -44,7 +49,7 @@
     </div>
     <section class="saved-comparisons" *ngIf="comparisons.length" aria-labelledby="saved-comparisons-title">
       <div class="saved-comparisons-heading"><h3 id="saved-comparisons-title">{{ i18n.text('savedComparisons') }}</h3><button type="button" class="text-action" (click)="loadComparisons()">{{ i18n.text('refreshComparisons') }} ↻</button></div>
-      <div class="comparison-list"><button class="comparison-card" type="button" *ngFor="let item of comparisons" (click)="openComparison(item)"><span class="comparison-score">{{ item.savedScore }}%</span><span class="comparison-copy"><b>{{ item.profileLabel }}</b><span class="comparison-company">{{ item.result.companyName || i18n.text('companyNotProvided') }}</span><span>{{ item.jobText }}</span><small>{{ i18n.text('savedOn') }} {{ formatDate(item.createdAt) }}</small></span><span class="comparison-open">↗</span></button></div>
+      <div class="comparison-list"><article class="comparison-card" *ngFor="let item of comparisons"><button class="comparison-open-button" type="button" (click)="openComparison(item)"><span class="comparison-score">{{ item.savedScore }}%</span><span class="comparison-copy"><b>{{ item.profileLabel }}</b><span class="comparison-company">{{ item.result.companyName || i18n.text('companyNotProvided') }}</span><span>{{ item.jobText }}</span><small>{{ i18n.text('savedOn') }} {{ formatDate(item.createdAt) }}</small></span><span class="comparison-open">↗</span></button><button class="button button-small button-outline comparison-pdf-button" type="button" [disabled]="(!item.resumeId && !item.tailoredResumeId) || comparisonPdfId !== null" (click)="downloadComparisonPdf(item)"><span class="spinner" *ngIf="comparisonPdfId === item.id" aria-hidden="true"></span>{{ comparisonPdfId === item.id ? i18n.text('comparisonPdfGenerating') : (item.tailoredResumeId ? i18n.text('comparisonPdfDownload') : i18n.text('comparisonPdfButton')) }}</button><small class="comparison-pdf-hint" *ngIf="!item.resumeId && !item.tailoredResumeId">{{ i18n.text('comparisonPdfUnavailable') }}</small></article></div><p class="import-error comparison-pdf-error" role="alert" *ngIf="comparisonPdfError">{{ comparisonPdfError }}</p>
     </section>
     <p class="import-error" role="alert" *ngIf="comparisonError && !jobAnalysis">{{ comparisonError }}</p>
   </section>
@@ -83,4 +88,41 @@
   </div>
   <div class="empty-state" *ngIf="!loading && !error && resumes.length === 0"><div class="empty-art"><span>CV</span><i>✦</i></div><h3>{{ i18n.text('emptyTitle') }}</h3><p>{{ i18n.text('emptyBody') }}</p><a class="button button-primary" routerLink="/resume/new">{{ i18n.text('createFirst') }} <span class="button-arrow">↗</span></a></div>
   <div class="empty-search" *ngIf="!loading && !error && resumes.length > 0 && filtered.length === 0">{{ i18n.text('noResults') }}</div>
+  <div class="resume-preview-backdrop" *ngIf="comparisonPreview as preview" (click)="closeComparisonPreview()" role="presentation">
+    <section class="resume-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="comparison-preview-title" (click)="$event.stopPropagation()">
+      <header class="resume-preview-header">
+        <div><p class="eyebrow">{{ i18n.text('savedComparisons') }}</p><h2 id="comparison-preview-title">{{ i18n.text('comparisonPreviewTitle') }}</h2><p>{{ i18n.text('comparisonPreviewHint') }}</p><small class="privacy-note" *ngIf="preview.cached">{{ i18n.text('comparisonPreviewCached') }}</small></div>
+        <button type="button" class="preview-close" [attr.aria-label]="i18n.text('comparisonPreviewClose')" [disabled]="savingComparisonPreview" (click)="closeComparisonPreview()">×</button>
+      </header>
+      <div class="preview-filename"><span>{{ i18n.text('comparisonPreviewFilename') }}</span><code>{{ preview.filename }}</code></div>
+      <div class="preview-tabs" role="tablist" [attr.aria-label]="i18n.text('comparisonPreviewTabs')">
+        <button type="button" role="tab" id="comparison-changes-tab" aria-controls="comparison-changes-panel" [attr.aria-selected]="comparisonPreviewTab === 'changes'" [attr.tabindex]="comparisonPreviewTab === 'changes' ? 0 : -1" (click)="comparisonPreviewTab = 'changes'" (keydown)="onComparisonPreviewTabKeydown($event)">{{ i18n.text('comparisonChanges') }}</button>
+        <button type="button" role="tab" id="comparison-resume-tab" aria-controls="comparison-resume-panel" [attr.aria-selected]="comparisonPreviewTab === 'resume'" [attr.tabindex]="comparisonPreviewTab === 'resume' ? 0 : -1" (click)="comparisonPreviewTab = 'resume'" (keydown)="onComparisonPreviewTabKeydown($event)">{{ i18n.text('comparisonResumeTab') }}</button>
+      </div>
+      <section class="preview-change-list preview-tab-panel" *ngIf="comparisonPreviewTab === 'changes'" id="comparison-changes-panel" role="tabpanel" aria-labelledby="comparison-changes-tab" [attr.aria-label]="i18n.text('comparisonChanges')">
+        <h3>{{ i18n.text('comparisonChanges') }}</h3><p>{{ i18n.text('comparisonChangesIntro') }}</p>
+        <article class="preview-change-card" *ngFor="let change of preview.changes">
+          <strong>{{ previewChangeLabel(change.section) }}<span *ngIf="change.item"> · {{ change.item }}</span></strong>
+          <div class="preview-change-before"><small>{{ i18n.text('comparisonBefore') }}</small><p>{{ change.before || '—' }}</p></div>
+          <div class="preview-change-after"><small>{{ i18n.text('comparisonAfter') }}</small><p>{{ change.after || '—' }}</p></div>
+        </article>
+        <p class="preview-no-changes" *ngIf="!preview.changes.length">{{ i18n.text('comparisonNoChanges') }}</p>
+      </section>
+      <div class="resume-preview-scroll preview-tab-panel" *ngIf="comparisonPreviewTab === 'resume'" id="comparison-resume-panel" role="tabpanel" aria-labelledby="comparison-resume-tab">
+        <article class="resume-preview-paper" [class.preview-executive]="preview.layout === 'EXECUTIVO'" [class.preview-terminal]="preview.layout === 'TERMINAL'" [class.preview-modern]="preview.layout === 'MODERNO'" [class.preview-creative]="preview.layout === 'CRIATIVO'" [class.preview-compact]="preview.layout === 'COMPACTO'">
+          <h1>{{ preview.data.name }}</h1><p class="preview-headline" *ngIf="preview.data.headline">{{ preview.data.headline }}</p>
+          <p class="preview-contact">{{ previewContact(preview.data) }}</p>
+          <section *ngIf="preview.data.summary"><h3>{{ i18n.text('previewSummary') }}</h3><p>{{ preview.data.summary }}</p></section>
+          <section *ngIf="preview.data.experience.length"><h3>{{ i18n.text('previewExperience') }}</h3><div class="preview-resume-item" *ngFor="let entry of preview.data.experience"><b>{{ entry.role }}<span *ngIf="entry.company"> · {{ entry.company }}</span></b><small>{{ entry.period }}</small><p>{{ entry.description }}</p></div></section>
+          <section *ngIf="preview.data.education.length"><h3>{{ i18n.text('previewEducation') }}</h3><div class="preview-resume-item" *ngFor="let entry of preview.data.education"><b>{{ entry.course }}<span *ngIf="entry.institution"> · {{ entry.institution }}</span></b><small>{{ entry.period }}</small></div></section>
+          <section *ngIf="preview.data.courses.length"><h3>{{ i18n.text('previewCourses') }}</h3><div class="preview-resume-item" *ngFor="let entry of preview.data.courses"><b>{{ entry.course }}<span *ngIf="entry.institution"> · {{ entry.institution }}</span></b><small>{{ entry.period }}</small></div></section>
+          <section *ngIf="preview.data.projects.length"><h3>{{ i18n.text('previewProjects') }}</h3><div class="preview-resume-item" *ngFor="let entry of preview.data.projects"><b>{{ entry.name }}</b><p>{{ entry.description }}</p><small>{{ entry.link }}</small></div></section>
+          <section *ngIf="preview.data.skills.length"><h3>{{ i18n.text('previewSkills') }}</h3><p class="preview-skills"><span *ngFor="let skill of preview.data.skills">{{ skill }}</span></p></section>
+          <section *ngIf="preview.data.links.length"><h3>{{ i18n.text('previewLinks') }}</h3><p *ngFor="let link of preview.data.links">{{ link }}</p></section>
+        </article>
+      </div>
+      <p class="import-error" role="alert" *ngIf="comparisonPdfError">{{ comparisonPdfError }}</p>
+      <footer class="resume-preview-actions"><button class="button button-outline" type="button" [disabled]="savingComparisonPreview" (click)="closeComparisonPreview()">{{ i18n.text('comparisonPreviewClose') }}</button><button class="button button-primary" type="button" [disabled]="savingComparisonPreview" (click)="saveComparisonPreview()"><span class="spinner" *ngIf="savingComparisonPreview" aria-hidden="true"></span>{{ savingComparisonPreview ? i18n.text('comparisonPreviewSaving') : i18n.text('comparisonPreviewSave') }}</button></footer>
+    </section>
+  </div>
 </section>

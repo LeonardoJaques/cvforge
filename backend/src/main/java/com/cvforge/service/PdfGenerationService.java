@@ -67,10 +67,11 @@ public class PdfGenerationService {
         addLine(html, value(resume, "headline"), "<p class=\"muted\"><strong>", "</strong></p>");
         String contact = join(value(resume, "email"), value(resume, "phone"), value(resume, "location"));
         addLine(html, contact, "<p class=\"muted\">", "</p>");
-        section(html, "Resumo", value(resume, "summary"));
+        boolean english = "en".equalsIgnoreCase(value(resume, "_pdfLanguage"));
+        section(html, english ? "Summary" : "Resumo", value(resume, "summary"));
         JsonNode experience = resume.path("experience");
         if (experience.isArray() && !experience.isEmpty()) {
-            html.append("<h2>Experiência</h2>");
+            html.append(english ? "<h2>Experience</h2>" : "<h2>Experiência</h2>");
             for (JsonNode item : experience) {
                 html.append("<div class=\"item\"><h3>").append(escape(value(item, "role")))
                         .append(" — ").append(escape(value(item, "company"))).append("</h3>");
@@ -81,7 +82,7 @@ public class PdfGenerationService {
         }
         JsonNode education = resume.path("education");
         if (education.isArray() && !education.isEmpty()) {
-            html.append("<h2>Formação</h2>");
+            html.append(english ? "<h2>Education</h2>" : "<h2>Formação</h2>");
             for (JsonNode item : education) {
                 html.append("<div class=\"item\"><h3>").append(escape(value(item, "course")))
                         .append(" — ").append(escape(value(item, "institution"))).append("</h3>");
@@ -91,7 +92,7 @@ public class PdfGenerationService {
         }
         JsonNode courses = resume.path("courses");
         if (courses.isArray() && !courses.isEmpty()) {
-            html.append("<h2>Cursos e certificações</h2>");
+            html.append(english ? "<h2>Courses &amp; Certifications</h2>" : "<h2>Cursos e certificações</h2>");
             for (JsonNode item : courses) {
                 html.append("<div class=\"item\"><h3>").append(escape(value(item, "course"))).append("</h3>");
                 addLine(html, value(item, "institution"), "<p class=\"muted\">", "</p>");
@@ -101,7 +102,7 @@ public class PdfGenerationService {
         }
         JsonNode projects = resume.path("projects");
         if (projects.isArray() && !projects.isEmpty()) {
-            html.append("<h2>Projetos e portfólio</h2>");
+            html.append(english ? "<h2>Projects &amp; Portfolio</h2>" : "<h2>Projetos e portfólio</h2>");
             for (JsonNode item : projects) {
                 String name = value(item, "name");
                 String description = value(item, "description");
@@ -112,7 +113,7 @@ public class PdfGenerationService {
                 html.append("</div>");
             }
         }
-        addArraySection(html, "Competências", resume.path("skills"));
+        addArraySection(html, english ? "Skills" : "Competências", resume.path("skills"));
         addArraySection(html, "Links", resume.path("links"), true);
         return html.append("</body></html>").toString();
     }

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { JobComparison, JobMatchResult, ResumeData, ResumeImportResult, ResumeLayout, ResumeRecord } from '../models/resume.model';
+import { ComparisonResumePreview, JobComparison, JobMatchResult, ResumeData, ResumeImportResult, ResumeLayout, ResumeRecord } from '../models/resume.model';
 
 const API = `${new URL('api/v1/resumes', document.baseURI).pathname.replace(/\/$/, '')}`;
 
@@ -30,6 +30,18 @@ export class ResumeService {
   }
   saveJobComparison(request: { resumeId?: number; profileLabel: string; jobText: string; result: JobMatchResult; language: 'pt' | 'en' }): Observable<JobComparison> {
     return this.http.post<JobComparison>(`${new URL('api/v1/jobs/comparisons', document.baseURI).pathname.replace(/\/$/, '')}`, request);
+  }
+  previewComparisonResume(id: number): Observable<ComparisonResumePreview> {
+    const endpoint = new URL('api/v1/jobs/comparisons', document.baseURI).pathname.replace(/\/$/, '') + '/' + id + '/resume-preview';
+    return this.http.post<ComparisonResumePreview>(endpoint, null);
+  }
+  saveComparisonResumePreview(id: number, token: string): Observable<Blob> {
+    const endpoint = new URL('api/v1/jobs/comparisons', document.baseURI).pathname.replace(/\/$/, '') + '/' + id + '/resume.pdf';
+    return this.http.post(endpoint, { token }, { responseType: 'blob' });
+  }
+  downloadComparisonResumePdf(id: number): Observable<Blob> {
+    const endpoint = new URL('api/v1/jobs/comparisons', document.baseURI).pathname.replace(/\/$/, '') + '/' + id + '/resume.pdf';
+    return this.http.post(endpoint, null, { responseType: 'blob' });
   }
   delete(id: number): Observable<void> { return this.http.delete<void>(`${API}/${id}`); }
   downloadPdf(id: number): Observable<Blob> { return this.http.get(`${API}/${id}/pdf`, { responseType: 'blob' }); }

@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { JobComparison, JobMatchResult, ResumeLayout, ResumeRecord } from '../../models/resume.model';
+import { ComparisonResumePreview, JobComparison, JobMatchResult, ResumeData, ResumeLayout, ResumeRecord } from '../../models/resume.model';
 import { I18nService } from '../../services/i18n.service';
 import { ResumeService } from '../../services/resume.service';
 
@@ -34,6 +34,7 @@ export class DashboardComponent implements OnInit {
   matchResumeId: number | null = null;
   matchProfileText = '';
   jobDescription = '';
+  readonly maxJobWords = 3000;
   companyName = '';
   analyzingJob = false;
   jobAnalysis: JobMatchResult | null = null;
@@ -42,6 +43,16 @@ export class DashboardComponent implements OnInit {
   savingComparison = false;
   comparisonSaved = false;
   comparisonError = '';
+  comparisonPdfId: number | null = null;
+  comparisonPdfError = '';
+  comparisonPreview: ComparisonResumePreview | null = null;
+  comparisonPreviewTab: 'changes' | 'resume' = 'resume';
+  savingComparisonPreview = false;
+
+  get jobDescriptionWordCount(): number {
+    const text = this.jobDescription.trim();
+    return text ? text.split(/\s+/u).length : 0;
+  }
 
   ngOnInit(): void { this.load(); this.loadComparisons(); }
   loadComparisons(): void {
@@ -116,6 +127,7 @@ export class DashboardComponent implements OnInit {
       request.profileText = this.matchProfileText.trim();
     }
     if (!this.jobDescription.trim()) { this.jobError = this.i18n.text('jobRequired'); return; }
+    if (this.jobDescriptionWordCount > this.maxJobWords) { this.jobError = this.i18n.text('jobDescriptionLimitExceeded'); return; }
     request.jobText = this.jobDescription.trim();
     request.language = this.i18n.lang();
     this.analyzingJob = true;
@@ -136,6 +148,86 @@ export class DashboardComponent implements OnInit {
       next: saved => { const snapshot = this.comparisonSnapshot(saved); this.comparisons = [snapshot, ...this.comparisons.filter(item => item.id !== saved.id)]; this.savingComparison = false; this.comparisonSaved = true; },
       error: () => { this.savingComparison = false; this.comparisonError = this.i18n.text('comparisonSaveError'); }
     });
+  }
+  downloadComparisonPdf(item: SavedComparisonCard): void {
+    this.comparisonPdfError = '';
+    if (!item.resumeId && !item.tailoredResumeId) { this.comparisonPdfError = this.i18n.text('comparisonPdfUnavailable'); return; }
+    if (this.comparisonPdfId !== null) return;
+    this.comparisonPdfId = item.id;
+    if (item.tailoredResumeId) {
+      this.resumesApi.downloadComparisonResumePdf(item.id).subscribe({
+        next: blob => { this.downloadComparisonBlob(blob, this.comparisonFilename(item)); this.comparisonPdfId = null; },
+        error: failure => { this.handleComparisonPreviewError(failure); this.comparisonPdfId = null; }
+      });
+      return;
+    }
+    this.resumesApi.previewComparisonResume(item.id).subscribe({
+      next: preview => { this.setComparisonPreview(preview, item.id); this.comparisonPdfId = null; },
+      error: failure => { this.handleComparisonPreviewError(failure); this.comparisonPdfId = null; }
+    });
+  }
+  saveComparisonPreview(): void {
+    if (!this.comparisonPreview || this.savingComparisonPreview) return;
+    const preview = this.comparisonPreview;
+    const item = this.comparisons.find(card => card.id === this.comparisonPreviewComparisonId);
+    if (!item) { this.comparisonPdfError = this.i18n.text('comparisonPdfError'); return; }
+    this.savingComparisonPreview = true;
+    this.resumesApi.saveComparisonResumePreview(item.id, preview.token).subscribe({
+      next: blob => {
+        this.downloadComparisonBlob(blob, preview.filename);
+        this.savingComparisonPreview = false;
+        this.comparisonPreview = null;
+        this.loadComparisons();
+        this.load();
+      },
+      error: failure => { this.handleComparisonPreviewError(failure); this.savingComparisonPreview = false; }
+    });
+  }
+  closeComparisonPreview(): void { if (!this.savingComparisonPreview) this.comparisonPreview = null; }
+  onComparisonPreviewTabKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    this.comparisonPreviewTab = event.key === 'ArrowLeft'
+      ? (this.comparisonPreviewTab === 'resume' ? 'changes' : 'resume')
+      : (this.comparisonPreviewTab === 'changes' ? 'resume' : 'changes');
+    document.getElementById(this.comparisonPreviewTab === 'changes' ? 'comparison-changes-tab' : 'comparison-resume-tab')?.focus();
+  }
+  private comparisonPreviewComparisonId: number | null = null;
+  previewContact(data: ResumeData): string { return [data.email, data.phone, data.location].filter(value => !!value).join(' · '); }
+  previewChangeLabel(section: string): string {
+    const labels: Record<string, string> = { headline: 'previewHeadline', summary: 'previewSummary', experience: 'previewExperience', projects: 'previewProjects', skills: 'previewSkills' };
+    return this.i18n.text(labels[section] ?? 'comparisonChanges');
+  }
+  private setComparisonPreview(preview: ComparisonResumePreview, comparisonId: number): void {
+    preview.data = this.resumesApi.parse({ jsonData: JSON.stringify(preview.data) } as ResumeRecord);
+    this.comparisonPreview = preview;
+    this.comparisonPreviewTab = 'resume';
+    this.comparisonPreviewComparisonId = comparisonId;
+  }
+  private comparisonFilename(item: SavedComparisonCard): string {
+    const slug = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase();
+    const base = slug(item.profileLabel.replace(/\.(pdf|docx?|json)$/i, '')) || 'curriculo';
+    const company = slug(item.result.companyName || '') || 'empresa';
+    return base + '_' + company + '.pdf';
+  }
+  private downloadComparisonBlob(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob), anchor = document.createElement('a');
+    anchor.href = url; anchor.download = filename; anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  private handleComparisonPreviewError(failure: unknown): void {
+    let message = this.i18n.text('comparisonPdfError');
+    const body = (failure as { error?: unknown } | null)?.error;
+    if (body instanceof Blob) {
+      void body.text().then(text => {
+        try {
+          const parsed: unknown = JSON.parse(text);
+          if (parsed && typeof parsed === 'object' && 'message' in parsed && typeof parsed.message === 'string' && parsed.message.trim()) this.comparisonPdfError = parsed.message;
+        } catch { this.comparisonPdfError = message; }
+      }).catch(() => { this.comparisonPdfError = message; });
+    } else {
+      this.comparisonPdfError = message;
+    }
   }
   openComparison(item: SavedComparisonCard): void {
     this.jobAnalysis = this.copyResult(item.result); this.jobDescription = item.jobText; this.companyName = item.result.companyName ?? ''; this.comparisonSaved = true; this.comparisonError = '';

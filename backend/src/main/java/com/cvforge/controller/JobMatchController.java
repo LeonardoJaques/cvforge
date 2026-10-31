@@ -1,6 +1,7 @@
 package com.cvforge.controller;
 
 import com.cvforge.service.JobMatchService;
+import com.cvforge.service.ComparisonResumePdfService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.cvforge.entity.JobComparison;
@@ -9,6 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,8 +29,9 @@ public class JobMatchController {
     private final JobMatchService jobMatch;
     private final JobComparisonRepository comparisons;
     private final ObjectMapper mapper;
-    public JobMatchController(JobMatchService jobMatch, JobComparisonRepository comparisons, ObjectMapper mapper) {
-        this.jobMatch = jobMatch; this.comparisons = comparisons; this.mapper = mapper;
+    private final ComparisonResumePdfService comparisonResumePdf;
+    public JobMatchController(JobMatchService jobMatch, JobComparisonRepository comparisons, ObjectMapper mapper, ComparisonResumePdfService comparisonResumePdf) {
+        this.jobMatch=jobMatch; this.comparisons=comparisons; this.mapper=mapper; this.comparisonResumePdf=comparisonResumePdf;
     }
 
     @PostMapping("/analyze")
@@ -77,6 +81,40 @@ public class JobMatchController {
         return comparisons.findByUserIdOrderByCreatedAtDesc(userId).stream().map(this::toResponse).toList();
     }
 
+    @PostMapping(value="/comparisons/{id}/resume-preview", produces=MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> previewComparisonResume(@PathVariable Long id, @RequestHeader(value="Remote-User", required=false, defaultValue="anonimo") String userId) {
+      try { return ResponseEntity.ok(comparisonResumePdf.preview(id,userId)); }
+      catch(IllegalArgumentException e) { return jsonError(HttpStatus.BAD_REQUEST,e.getMessage()); }
+      catch(IllegalStateException e) {
+        log.warn("CVFORGE_COMPARISON_RESUME_PREVIEW_REJECTED reason={}",safeLogMessage(e.getMessage()));
+        return jsonError(HttpStatus.BAD_GATEWAY,e.getMessage());
+      } catch(Exception e) {
+        log.error("CVFORGE_COMPARISON_RESUME_PREVIEW_UNEXPECTED exception_type={}",e.getClass().getName());
+        return jsonError(HttpStatus.INTERNAL_SERVER_ERROR,"Não foi possível gerar a prévia do currículo.");
+      }
+    }
+
+    @PostMapping(value="/comparisons/{id}/resume.pdf", produces=MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<?> generateComparisonResumePdf(@PathVariable Long id, @RequestBody(required=false) SavePreviewRequest request,
+            @RequestHeader(value="Remote-User", required=false, defaultValue="anonimo") String userId) {
+      try {
+        ComparisonResumePdfService.PdfDownload file=comparisonResumePdf.savePreview(id,userId,request==null?null:request.token());
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=" + file.filename()).contentType(MediaType.APPLICATION_PDF).body(file.bytes());
+      } catch(IllegalArgumentException e) { return jsonError(HttpStatus.BAD_REQUEST,e.getMessage()); }
+        catch(IllegalStateException e) {
+          log.warn("CVFORGE_COMPARISON_RESUME_SAVE_REJECTED reason={}",safeLogMessage(e.getMessage()));
+          return jsonError(HttpStatus.BAD_GATEWAY,e.getMessage());
+        } catch(Exception e) {
+          log.error("CVFORGE_COMPARISON_RESUME_SAVE_UNEXPECTED exception_type={}",e.getClass().getName());
+          return jsonError(HttpStatus.INTERNAL_SERVER_ERROR,"Não foi possível salvar o currículo em PDF.");
+        }
+    }
+
+    private ResponseEntity<Map<String, String>> jsonError(HttpStatus status, String message) {
+        String safeMessage = message == null || message.isBlank() ? "Não foi possível gerar o currículo em PDF." : message;
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(Map.of("message", safeMessage));
+    }
+
     @DeleteMapping("/comparisons/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id,
                                        @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
@@ -87,10 +125,11 @@ public class JobMatchController {
 
     private ComparisonResponse toResponse(JobComparison item) {
         try {
-            return new ComparisonResponse(item.getId(), item.getResumeId(), item.getProfileLabel(), item.getJobText(), mapper.readTree(item.getResultJson()), item.getLanguage(), item.getCreatedAt());
+            return new ComparisonResponse(item.getId(), item.getResumeId(), item.getProfileLabel(), item.getJobText(), mapper.readTree(item.getResultJson()), item.getLanguage(), item.getCreatedAt(), item.getTailoredResumeId());
         } catch (Exception e) { throw new IllegalStateException("Saved comparison JSON is invalid.", e); }
     }
 
     public record SaveRequest(Long resumeId, String profileLabel, String jobText, JsonNode result, String language) { }
-    public record ComparisonResponse(Long id, Long resumeId, String profileLabel, String jobText, JsonNode result, String language, java.time.LocalDateTime createdAt) { }
+    public record SavePreviewRequest(String token) { }
+    public record ComparisonResponse(Long id, Long resumeId, String profileLabel, String jobText, JsonNode result, String language, java.time.LocalDateTime createdAt, Long tailoredResumeId) { }
 }

@@ -54,8 +54,20 @@ export interface JobComparison {
   result: JobMatchResult;
   language: 'pt' | 'en';
   createdAt: string;
+  tailoredResumeId?: number | null;
 }
 export const EMPTY_RESUME: ResumeData = {
   name: '', headline: '', email: '', phone: '', location: '', summary: '',
   experience: [], education: [], courses: [], projects: [], skills: [], links: []
 };
+
+export interface ComparisonResumeChange { section: string; item: string; before: string; after: string; }
+
+export interface ComparisonResumePreview {
+  token: string;
+  filename: string;
+  data: ResumeData;
+  layout: ResumeLayout;
+  changes: ComparisonResumeChange[];
+  cached: boolean;
+}
