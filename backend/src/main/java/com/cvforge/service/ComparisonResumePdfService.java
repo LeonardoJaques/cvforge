@@ -57,7 +57,6 @@ public class ComparisonResumePdfService {
                 c.setTailoredResumeLayout(cached.getTailoredResumeLayout());
                 c.setTailoredResumeGeneratedAt(cached.getTailoredResumeGeneratedAt());
                 c.setTailoredResumeSourceHash(cached.getTailoredResumeSourceHash());
-                comparisons.save(c);
             }
             source=parse(c.getTailoredResumeJson());
             filename=c.getTailoredResumeTitle();
@@ -84,14 +83,13 @@ public class ComparisonResumePdfService {
             c.setTailoredResumeLayout(layout);
             c.setTailoredResumeGeneratedAt(LocalDateTime.now());
             c.setTailoredResumeSourceHash(sourceHash);
-            comparisons.save(c);
         }
         String title=filename.substring(0,filename.length()-4);
         String json=write(source);
         String token=UUID.randomUUID().toString();
         Instant now=Instant.now();
         drafts.entrySet().removeIf(entry->entry.getValue().createdAt().isBefore(now.minusSeconds(1800)));
-        drafts.put(token,new PreviewDraft(id,userId,title,json,layout,now));
+        drafts.put(token,new PreviewDraft(id,userId,title,json,layout,now,sourceHash));
         try {
             return new ResumePreview(token,filename,mapper.readTree(json),layout,buildChanges(before,source),cacheHit);
         } catch(JsonProcessingException e) {
@@ -145,6 +143,7 @@ public class ComparisonResumePdfService {
         if(draft==null||draft.createdAt().isBefore(Instant.now().minusSeconds(1800)))throw new IllegalArgumentException("A prévia expirou. Gere outra prévia para continuar.");
         if(!draft.comparisonId().equals(id)||!draft.userId().equals(userId))throw new IllegalArgumentException("A prévia não pertence a esta comparação.");
         Resume saved=resumes.save(new Resume(userId,draft.title(),draft.jsonData(),draft.layout(),"CVForge DeepSeek"));
+        c.setTailoredResumeJson(draft.jsonData()); c.setTailoredResumeTitle(draft.title()+".pdf"); c.setTailoredResumeLayout(draft.layout()); c.setTailoredResumeGeneratedAt(LocalDateTime.now()); c.setTailoredResumeSourceHash(draft.sourceHash());
         c.setTailoredResumeId(saved.getId());comparisons.save(c);
         drafts.remove(token,draft);
         return toPdf(saved);
@@ -155,7 +154,7 @@ public class ComparisonResumePdfService {
         return slug(base)+"_"+slug(company)+".pdf";
     }
     private PdfDownload toPdf(Resume r){return new PdfDownload(pdf.generatePdfFromJson(r.getJsonData(),r.getLayout()),r.getTitle()+".pdf");}
-    private record PreviewDraft(Long comparisonId,String userId,String title,String jsonData,String layout,Instant createdAt){}
+    private record PreviewDraft(Long comparisonId,String userId,String title,String jsonData,String layout,Instant createdAt,String sourceHash){}
     public record ResumePreview(String token,String filename,JsonNode data,String layout,List<ResumeChange> changes,boolean cached){}
     public record ResumeChange(String section,String item,String before,String after){}
     public record PdfDownload(byte[] bytes,String filename){}

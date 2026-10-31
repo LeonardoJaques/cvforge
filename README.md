@@ -1,68 +1,75 @@
 # CVForge
 
-**CVForge** é uma aplicação web para criar e importar currículos, editar seus dados, gerar PDFs e comparar um perfil profissional com uma vaga de emprego usando IA.
+CVForge é uma aplicação web para criar e importar currículos, editar seus dados, exportar PDFs e comparar um perfil profissional com uma vaga.
 
 ## Funcionalidades
 
 - Criar, editar, importar e organizar vários currículos.
-- Importar currículos em PDF ou JSON e editar os dados diretamente em JSON.
-- Visualizar e exportar o currículo em PDF.
-- Comparar um currículo ou perfil profissional com a descrição de uma vaga.
-- Salvar comparações com pontuação, empresa, currículo usado e data.
-- Interface em português e inglês.
+- Importar currículos em PDF ou JSON e editar os dados como JSON.
+- Visualizar e exportar currículos em seis layouts: ATS, executivo, terminal, moderno, criativo e compacto.
+- Comparar um currículo ou perfil com a descrição de uma vaga e salvar o resultado com pontuação, empresa, currículo usado e data.
+- Gerar uma prévia em PDF do currículo ajustado para uma vaga. A prévia fica como rascunho; os dados e metadados do currículo ajustado só são salvos depois da confirmação do usuário.
+- Usar a interface em português ou inglês.
+
+## Repositórios
+
+O Gitea é a origem canônica do projeto:
+
+- Gitea: [leo/cvforge](https://gitea.jaquesprojetos.com.br/leo/cvforge)
+- Cópia pública no GitHub: [LeonardoJaques/cvforge](https://github.com/LeonardoJaques/cvforge)
+
+Atualize primeiro o branch `main` no Gitea e sincronize o GitHub a partir dele.
 
 ## Arquitetura
 
 - **Frontend:** Angular 18, TypeScript e SCSS.
 - **API:** Java 21, Spring Boot 3.4, Spring Security e Spring Data JPA.
 - **Banco:** PostgreSQL 16, com migrações Flyway.
-- **IA:** OpenRouter, chamado exclusivamente pelo backend.
-- **Containers:** Docker Compose e Nginx.
+- **Análise de vagas:** OpenRouter, chamado somente pelo backend.
+- **Execução:** Docker Compose e Nginx; em produção, Traefik e autenticação centralizada.
 
-O navegador chama a API no mesmo prefixo de URL da aplicação. A instalação de produção espera um proxy reverso que encaminhe a interface e a API e remova o prefixo /cvforge antes de encaminhar as requisições.
+A autenticação é delegada a um proxy confiável, que envia o cabeçalho `Remote-User`. A API só confia nesse cabeçalho quando a conexão vem do endereço configurado em `CVFORGE_TRUSTED_PROXY_IP`. Não exponha a API diretamente à Internet nem aceite esse cabeçalho de clientes sem autenticação.
 
-### Autenticação e segurança
+Os currículos e as comparações são armazenados no PostgreSQL configurado pelo operador. Quando a análise por IA é usada, o backend envia à OpenRouter o conteúdo necessário para essa análise.
 
-A autenticação é delegada a um proxy confiável. O proxy deve definir o cabeçalho Remote-User, e a API só confia nele quando a conexão vem do endereço configurado em CVFORGE_TRUSTED_PROXY_IP. **Não exponha a API diretamente à Internet** nem aceite esse cabeçalho de clientes sem autenticação.
+## Configuração e execução local
 
-A lista de origens permitidas para operações de escrita está definida em RemoteUserAuthenticationFilter; ajuste-a para o domínio da sua instalação. Guarde credenciais e chaves somente no backend, em variáveis de ambiente.
+1. Copie `.env.example` para `.env`.
+2. Configure uma senha forte para `POSTGRES_PASSWORD` e um segredo aleatório para `JWT_SECRET`.
+3. Para habilitar a análise de vagas, configure `OPENROUTER_API_KEY`.
+4. Ajuste `LLDAP_HTTP_URL`, `LLDAP_LDAP_BASE_DN` e `CVFORGE_TRUSTED_PROXY_IP` ao seu ambiente.
+5. Configure o proxy para autenticar o usuário, encaminhar `Remote-User` e remover o prefixo `/cvforge` antes de encaminhar as requisições.
 
-## Configuração
+Com Docker e Docker Compose:
 
-1. Copie .env.example para .env.
-2. Defina uma senha forte para POSTGRES_PASSWORD e um segredo aleatório para JWT_SECRET.
-3. Para habilitar a análise de vagas, configure OPENROUTER_API_KEY. A chave é usada somente pela API.
-4. Configure LLDAP_HTTP_URL, LLDAP_LDAP_BASE_DN e CVFORGE_TRUSTED_PROXY_IP de acordo com seu ambiente.
-5. Ajuste a origem permitida em RemoteUserAuthenticationFilter e configure o proxy para encaminhar Remote-User após autenticar o usuário.
-
-O docker-compose.yml de exemplo espera que exista uma rede Docker externa chamada web, compartilhada com o proxy reverso. Adapte redes, portas e regras do proxy antes de publicar uma instalação. As configurações específicas do servidor de produção não fazem parte deste repositório.
-
-## Executar
-
-Com Docker e Docker Compose instalados, preencha .env, conecte os serviços à rede do proxy e execute:
-
-~~~sh
+```sh
 docker compose up --build -d
-~~~
+```
 
-As migrações do banco são aplicadas pela API na inicialização. O endpoint de saúde é GET /api/v1/health/status.
+O Compose de exemplo espera uma rede Docker externa chamada `web`. Adapte rede, portas e regras do proxy antes de publicar. As configurações específicas do VPS não fazem parte do Compose local. A API oferece saúde em `/api/v1/health`.
 
-Para executar os serviços separadamente, use Java 21 e Maven no backend e Node.js 20 no frontend. Consulte backend/pom.xml e frontend/package.json para dependências e comandos.
+Para validar os serviços separadamente, use Java 21 e Maven no backend e Node.js 20 no frontend. Os Dockerfiles executam os testes durante o build.
 
-## Privacidade
+## Deploy no servidor
 
-Os currículos e as comparações ficam no PostgreSQL configurado pelo operador. Quando a análise por IA é usada, o backend envia à OpenRouter o conteúdo necessário para a análise. Revise as políticas do provedor e informe os usuários da sua instalação.
-
-## English
-
-CVForge is a web application for creating and importing resumes, editing resume data, generating PDFs, and comparing a professional profile with a job description using AI.
-
-It uses Angular 18 and TypeScript, a Java 21 / Spring Boot API, PostgreSQL with Flyway migrations, and OpenRouter for job analysis. OpenRouter is called by the backend only. Resume data and saved comparisons are stored in the configured PostgreSQL database.
-
-Copy .env.example to .env, replace all placeholders, configure a trusted reverse proxy that authenticates users and sets Remote-User, then run docker compose up --build -d. Do not expose the API directly to the Internet. The sample Compose file expects an existing external Docker network named web; adapt proxy routes, trusted proxy IP, and allowed browser origin for your environment.
+O deploy de produção é iniciado manualmente pelo job `cvforge-deploy` do Jenkins. Ele valida o Compose e o banco, compila e testa API e frontend, atualiza somente esses dois serviços e verifica a saúde. Se o rollout falhar, tenta restaurar as imagens anteriores. O serviço de banco não é reiniciado pelo job.
 
 ## Licença
 
-Este projeto está licenciado sob a **PolyForm Noncommercial License 1.0.0**. Uso, modificação e redistribuição são permitidos apenas para fins não comerciais, conforme os termos em [LICENSE](LICENSE). Qualquer uso comercial exige autorização prévia e por escrito do mantenedor. Para solicitar permissão comercial, entre em contato pelo perfil LeonardoJaques no GitHub.
+Este projeto está licenciado sob a **PolyForm Noncommercial License 1.0.0**. Uso, modificação e redistribuição são permitidos para fins não comerciais, conforme os termos em [LICENSE](LICENSE). Uso comercial exige autorização prévia e por escrito do mantenedor.
 
-This project is licensed under the **PolyForm Noncommercial License 1.0.0**. Use, modification, and redistribution are allowed only for noncommercial purposes under [LICENSE](LICENSE). Any commercial use requires prior written permission from the maintainer. Contact LeonardoJaques on GitHub to request commercial permission.
+---
+
+## English
+
+CVForge is a web application for creating and importing resumes, editing resume data, exporting PDFs, and comparing a profile with a job description.
+
+It supports six PDF layouts, Portuguese and English, saved job comparisons, and tailored-resume previews. A tailored draft is persisted only after the user confirms the save. The frontend uses Angular 18; the API uses Java 21 and Spring Boot 3.4; PostgreSQL stores resumes and comparisons; OpenRouter is called by the backend for job analysis.
+
+**Gitea is the canonical source.** Update its `main` branch first, then synchronize the public copy at [LeonardoJaques/cvforge](https://github.com/LeonardoJaques/cvforge).
+
+Copy `.env.example` to `.env`, replace all placeholders, configure a trusted authenticated reverse proxy that sets `Remote-User`, and run `docker compose up --build -d`. The sample Compose file expects an external Docker network named `web`. Do not expose the API directly to the Internet. The API health endpoint is `/api/v1/health`.
+
+Production deployments are manually started from the Jenkins job `cvforge-deploy`. It validates Compose and the database, builds and tests the API and frontend, updates only those two services, checks health, and attempts rollback on failure. It does not restart PostgreSQL.
+
+This project is licensed under the **PolyForm Noncommercial License 1.0.0**. Commercial use requires prior written permission from the maintainer.
