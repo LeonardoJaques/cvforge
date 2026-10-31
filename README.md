@@ -9,6 +9,7 @@ CVForge é uma aplicação web para criar e importar currículos, editar seus da
 - Visualizar e exportar currículos em seis layouts: ATS, executivo, terminal, moderno, criativo e compacto.
 - Comparar um currículo ou perfil com a descrição de uma vaga e salvar o resultado com pontuação, empresa, currículo usado e data.
 - Gerar uma prévia em PDF do currículo ajustado para uma vaga. A prévia fica como rascunho; os dados e metadados do currículo ajustado só são salvos depois da confirmação do usuário.
+- Uma compatibilidade abaixo de 70% aciona uma revisão extra das lacunas. O sistema só reformula informações já comprovadas no currículo; requisitos sem evidência aparecem para revisão e não são inventados.
 - Usar a interface em português ou inglês.
 
 ## Repositórios
@@ -54,6 +55,8 @@ Para validar os serviços separadamente, use Java 21 e Maven no backend e Node.j
 
 O job manual `cvforge-deploy` do Jenkins busca o branch `main` do Gitea e implanta o commit obtido nessa execução. Ele valida o Compose e o banco, compila e testa API e frontend, atualiza somente esses dois serviços e verifica a saúde. Se o rollout falhar, tenta restaurar as imagens anteriores. O serviço de banco não é reiniciado pelo job.
 
+A geração da prévia recebe uma revisão extra quando a pontuação fica abaixo de 70%. A pontuação não força alterações: qualquer texto novo precisa continuar apoiado por fatos do currículo. O cache da prévia é específico para o currículo, a vaga e a análise salva.
+
 ## Licença
 
 Este projeto está licenciado sob a **PolyForm Noncommercial License 1.0.0**. Uso, modificação e redistribuição são permitidos para fins não comerciais, conforme os termos em [LICENSE](LICENSE). Uso comercial exige autorização prévia e por escrito do mantenedor.
@@ -64,7 +67,7 @@ Este projeto está licenciado sob a **PolyForm Noncommercial License 1.0.0**. Us
 
 CVForge is a web application for creating and importing resumes, editing resume data, exporting PDFs, and comparing a profile with a job description.
 
-It supports six PDF layouts, Portuguese and English, saved job comparisons, and tailored-resume previews. A tailored draft is persisted only after the user confirms the save. The frontend uses Angular 18; the API uses Java 21 and Spring Boot 3.4; PostgreSQL stores resumes and comparisons; OpenRouter is called by the backend for job analysis.
+It supports six PDF layouts, Portuguese and English, saved job comparisons, and tailored-resume previews. A tailored draft is persisted only after the user confirms the save. Scores below 70% trigger an extra gap review, but never authorize unsupported claims; unmet requirements are shown for review. Preview caching is specific to the resume, job description, and saved analysis. The frontend uses Angular 18; the API uses Java 21 and Spring Boot 3.4; PostgreSQL stores resumes and comparisons; OpenRouter is called by the backend for job analysis.
 
 **Gitea is the canonical source.** Update its `main` branch first, then synchronize the public copy at [LeonardoJaques/cvforge](https://github.com/LeonardoJaques/cvforge).
 

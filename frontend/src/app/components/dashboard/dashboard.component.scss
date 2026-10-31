@@ -38,3 +38,5 @@ h1 { white-space: pre-line; color: var(--text); font: 600 clamp(39px,5.2vw,64px)
 .comparison-copy .comparison-company{color:var(--text);font-size:11px;font-weight:600}
 
 .job-description-meta{display:grid;gap:4px;margin-top:-8px}.job-description-count,.job-description-hint,.job-description-warning{font-size:10px;line-height:1.5}.job-description-count,.job-description-hint{color:var(--muted)}.job-description-count.over-limit,.job-description-warning{color:#ffb58c}
+
+.preview-gap-review{margin-top:12px;border:1px solid var(--line);border-left:2px solid var(--lime);border-radius:8px;padding:12px 14px;color:var(--muted);font-size:11px;line-height:1.6}.preview-gap-review p{margin:0}.preview-gap-review h4{margin:10px 0 5px;color:var(--text);font-size:10px}.preview-gap-review ul{display:grid;gap:6px;margin:0;padding-left:18px}.preview-gap-review li b{color:var(--text)}

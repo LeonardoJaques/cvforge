@@ -70,4 +70,6 @@ export interface ComparisonResumePreview {
   layout: ResumeLayout;
   changes: ComparisonResumeChange[];
   cached: boolean;
+  matchScore?: number;
+  unmetRequirements?: { requirement: string; reason: string }[];
 }

@@ -107,6 +107,13 @@
           <div class="preview-change-after"><small>{{ i18n.text('comparisonAfter') }}</small><p>{{ change.after || '—' }}</p></div>
         </article>
         <p class="preview-no-changes" *ngIf="!preview.changes.length">{{ i18n.text('comparisonNoChanges') }}</p>
+        <section class="preview-gap-review" *ngIf="!preview.changes.length && preview.matchScore !== undefined && preview.matchScore < 70">
+          <p>{{ i18n.text('comparisonLowScoreReview') }} <strong>{{ preview.matchScore }}%</strong></p>
+          <div *ngIf="preview.unmetRequirements?.length">
+            <h4>{{ i18n.text('comparisonRequirementsToReview') }}</h4>
+            <ul><li *ngFor="let gap of preview.unmetRequirements"><b>{{ gap.requirement }}</b><span *ngIf="gap.reason"> — {{ gap.reason }}</span></li></ul>
+          </div>
+        </section>
       </section>
       <div class="resume-preview-scroll preview-tab-panel" *ngIf="comparisonPreviewTab === 'resume'" id="comparison-resume-panel" role="tabpanel" aria-labelledby="comparison-resume-tab">
         <article class="resume-preview-paper" [class.preview-executive]="preview.layout === 'EXECUTIVO'" [class.preview-terminal]="preview.layout === 'TERMINAL'" [class.preview-modern]="preview.layout === 'MODERNO'" [class.preview-creative]="preview.layout === 'CRIATIVO'" [class.preview-compact]="preview.layout === 'COMPACTO'">
