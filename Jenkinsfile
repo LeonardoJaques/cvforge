@@ -12,11 +12,13 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        checkout scm
         script {
-          if (!(env.GIT_COMMIT ==~ /[0-9a-f]{40}/)) {
+          def checkoutResult = checkout scm
+          def revision = checkoutResult?.GIT_COMMIT?.toString()
+          if (!(revision ==~ /[0-9a-f]{40}/)) {
             error('The Gitea checkout did not provide a valid commit SHA.')
           }
+          env.GIT_COMMIT = revision
         }
       }
     }
