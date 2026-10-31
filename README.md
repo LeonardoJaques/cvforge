@@ -52,7 +52,7 @@ Para validar os serviços separadamente, use Java 21 e Maven no backend e Node.j
 
 ## Deploy no servidor
 
-O deploy de produção é iniciado manualmente pelo job `cvforge-deploy` do Jenkins. Ele valida o Compose e o banco, compila e testa API e frontend, atualiza somente esses dois serviços e verifica a saúde. Se o rollout falhar, tenta restaurar as imagens anteriores. O serviço de banco não é reiniciado pelo job.
+O job manual `cvforge-deploy` do Jenkins busca o branch `main` do Gitea e implanta o commit obtido nessa execução. Ele valida o Compose e o banco, compila e testa API e frontend, atualiza somente esses dois serviços e verifica a saúde. Se o rollout falhar, tenta restaurar as imagens anteriores. O serviço de banco não é reiniciado pelo job.
 
 ## Licença
 
@@ -70,6 +70,6 @@ It supports six PDF layouts, Portuguese and English, saved job comparisons, and 
 
 Copy `.env.example` to `.env`, replace all placeholders, configure a trusted authenticated reverse proxy that sets `Remote-User`, and run `docker compose up --build -d`. The sample Compose file expects an external Docker network named `web`. Do not expose the API directly to the Internet. The API health endpoint is `/api/v1/health`.
 
-Production deployments are manually started from the Jenkins job `cvforge-deploy`. It validates Compose and the database, builds and tests the API and frontend, updates only those two services, checks health, and attempts rollback on failure. It does not restart PostgreSQL.
+The manual Jenkins job `cvforge-deploy` checks out the Gitea `main` branch and deploys the exact commit used by that build. It validates Compose and the database, builds and tests the API and frontend, updates only those two services, checks health, and attempts rollback on failure. It does not restart PostgreSQL.
 
 This project is licensed under the **PolyForm Noncommercial License 1.0.0**. Commercial use requires prior written permission from the maintainer.
