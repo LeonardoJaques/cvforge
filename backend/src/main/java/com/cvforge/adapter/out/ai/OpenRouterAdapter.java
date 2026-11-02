@@ -1,4 +1,4 @@
-package com.cvforge.service;
+package com.cvforge.adapter.out.ai;
 
 import com.cvforge.application.port.out.TextCompletionPort;
 
@@ -16,13 +16,13 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 
 @Service
-public class OpenRouterClient implements TextCompletionPort {
+public class OpenRouterAdapter implements TextCompletionPort {
     private final ObjectMapper mapper;
     private final String apiKey;
     private final String model;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(12)).build();
 
-    public OpenRouterClient(ObjectMapper mapper,
+    public OpenRouterAdapter(ObjectMapper mapper,
                             @Value("${openrouter.api-key:}") String apiKey,
                             @Value("${openrouter.model:openrouter/free}") String model) {
         this.mapper = mapper;

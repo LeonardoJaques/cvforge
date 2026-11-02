@@ -1,4 +1,7 @@
-package com.cvforge.service;
+package com.cvforge.adapter.out.file;
+
+import com.cvforge.application.port.in.ResumeImportUseCases;
+import com.cvforge.application.model.ImportedResume;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +13,6 @@ import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.ByteArrayOutputStream;
@@ -26,7 +28,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
-public class ResumeImportService {
+public class ResumeImportAdapter implements ResumeImportUseCases {
     private static final int MAX_FILE_BYTES = 10 * 1024 * 1024;
     private static final int MAX_PDF_PAGES = 25;
     private static final int MAX_OCR_PAGES = 10;
@@ -49,29 +51,28 @@ public class ResumeImportService {
 
     private final ObjectMapper mapper;
 
-    public ResumeImportService(ObjectMapper mapper) {
+    public ResumeImportAdapter(ObjectMapper mapper) {
         this.mapper = mapper;
     }
 
-    public ImportResult importFile(MultipartFile file) {
-        if (file == null || file.isEmpty()) throw new IllegalArgumentException("Selecione um arquivo PDF ou JSON.");
-        if (file.getSize() > MAX_FILE_BYTES) throw new IllegalArgumentException("O arquivo precisa ter até 10 MB.");
-        String filename = safeTitle(file.getOriginalFilename());
-        String original = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);
+    public ImportedResume importFile(String originalFilename, String contentType, byte[] bytes) {
+        if (bytes == null || bytes.length == 0) throw new IllegalArgumentException("Selecione um arquivo PDF ou JSON.");
+        if (bytes.length > MAX_FILE_BYTES) throw new IllegalArgumentException("O arquivo precisa ter até 10 MB.");
+        String filename = safeTitle(originalFilename);
+        String original = originalFilename == null ? "" : originalFilename.toLowerCase(Locale.ROOT);
         try {
-            byte[] bytes = file.getBytes();
-            if (original.endsWith(".pdf") || "application/pdf".equalsIgnoreCase(file.getContentType())) {
+            if (original.endsWith(".pdf") || "application/pdf".equalsIgnoreCase(contentType)) {
                 ObjectNode data = parsePdf(bytes);
                 if (data.path("name").asText().isBlank()) {
                     String nameFromFilename = nameFromFilename(filename);
                     if (!nameFromFilename.isBlank()) data.put("name", nameFromFilename);
                 }
-                return new ImportResult(filename, data, List.of("Revise os campos extraídos antes de salvar."));
+                return new ImportedResume(filename, data, List.of("Revise os campos extraídos antes de salvar."));
             }
-            if (original.endsWith(".json") || "application/json".equalsIgnoreCase(file.getContentType()) || "text/json".equalsIgnoreCase(file.getContentType())) {
+            if (original.endsWith(".json") || "application/json".equalsIgnoreCase(contentType) || "text/json".equalsIgnoreCase(contentType)) {
                 JsonNode root = mapper.readTree(bytes);
                 ObjectNode data = normalizeJson(root);
-                return new ImportResult(filename, data, List.of("Revise os campos importados antes de salvar."));
+                return new ImportedResume(filename, data, List.of("Revise os campos importados antes de salvar."));
             }
             throw new IllegalArgumentException("Formato não aceito. Envie um PDF ou arquivo JSON.");
         } catch (IllegalArgumentException e) {
@@ -229,10 +230,10 @@ public class ResumeImportService {
         return out;
     }
 
-    public ImportResult importStructured(String title, JsonNode data, List<String> warnings) {
+    public ImportedResume importStructured(String title, JsonNode data, List<String> warnings) {
         ObjectNode normalized = normalizeJson(data);
         String normalizedTitle = title == null || title.isBlank() ? "Currículo importado" : limit(title, 200);
-        return new ImportResult(normalizedTitle, normalized, warnings == null ? List.of() : warnings);
+        return new ImportedResume(normalizedTitle, normalized, warnings == null ? List.of() : warnings);
     }
 
     private ObjectNode normalizePdfText(String text) {
@@ -567,5 +568,4 @@ public class ResumeImportService {
 
     private enum Section { SUMMARY, EXPERIENCE, EDUCATION, COURSES, PROJECTS, SKILLS }
 
-    public record ImportResult(String title, ObjectNode data, List<String> warnings) { }
 }

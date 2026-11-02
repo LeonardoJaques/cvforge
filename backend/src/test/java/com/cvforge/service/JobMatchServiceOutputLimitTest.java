@@ -1,6 +1,9 @@
 package com.cvforge.service;
 
 import com.cvforge.application.port.in.ResumeUseCases;
+import com.cvforge.application.port.in.JobMatchUseCases;
+import com.cvforge.application.port.out.TextCompletionPort;
+import com.cvforge.application.service.JobMatchApplicationService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -17,7 +20,7 @@ import static org.mockito.Mockito.when;
 class JobMatchServiceOutputLimitTest {
 
     @Mock private ResumeUseCases resumes;
-    @Mock private OpenRouterClient openRouter;
+    @Mock private TextCompletionPort openRouter;
 
     @Test
     void requestsSixThousandCompletionTokensForJobAnalysis() {
@@ -26,8 +29,8 @@ class JobMatchServiceOutputLimitTest {
                         + "\"matchingRequirements\":[],\"missingRequirements\":[],\"keywords\":[],"
                         + "\"resumeSuggestions\":[],\"interviewQuestions\":[],\"disclaimer\":\"Revise a análise.\"}");
 
-        JobMatchService service = new JobMatchService(resumes, openRouter, new ObjectMapper());
-        service.analyze(new JobMatchService.Request(null, "Perfil de teste", "Vaga de teste", "pt"), "test-user");
+        JobMatchApplicationService service = new JobMatchApplicationService(resumes, openRouter, new ObjectMapper());
+        service.analyze(new JobMatchUseCases.Request(null, "Perfil de teste", "Vaga de teste", "pt"), "test-user");
 
         verify(openRouter).complete(anyString(), anyString(), eq(6000));
     }

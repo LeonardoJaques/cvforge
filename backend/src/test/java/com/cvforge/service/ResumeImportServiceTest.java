@@ -1,5 +1,7 @@
 package com.cvforge.service;
 
+import com.cvforge.adapter.out.file.ResumeImportAdapter;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -19,11 +21,11 @@ import java.awt.image.BufferedImage;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ResumeImportServiceTest {
-    private ResumeImportService service;
+class ResumeImportAdapterTest {
+    private ResumeImportAdapter service;
 
     @BeforeEach
-    void setUp() { service = new ResumeImportService(new ObjectMapper()); }
+    void setUp() { service = new ResumeImportAdapter(new ObjectMapper()); }
 
     @Test
     void normalizesJsonResumeIntoEditableCvForgeModel() {
@@ -33,7 +35,7 @@ class ResumeImportServiceTest {
                  "education":[{"institution":"UFPE","studyType":"Bacharelado","area":"Computação","startDate":"2017","endDate":"2020"}],
                  "skills":[{"name":"Java","keywords":["Spring"]}],"courses":["Azure Fundamentals"],"projects":[{"title":"Portfolio","description":"Case study","url":"https://example.com/work"}],"profiles":[{"url":"https://linkedin.com/in/ana"}]}
                 """;
-        var result = service.importFile(new MockMultipartFile("file", "ana.json", "application/json", json.getBytes()));
+        var result = importFile(new MockMultipartFile("file", "ana.json", "application/json", json.getBytes()));
 
         assertEquals("ana", result.title());
         assertEquals("Ana Silva", result.data().path("name").asText());
@@ -51,7 +53,7 @@ class ResumeImportServiceTest {
     @Test
     void extractsContactAndSectionsFromTextPdf() throws Exception {
         byte[] pdf = createTextPdf("Ana Silva\nSoftware Engineer\nana@example.com\n+55 81 99999-8888\nSUMMARY\nExperience with Java platforms.\nSKILLS\nJava, Spring, PostgreSQL");
-        var result = service.importFile(new MockMultipartFile("file", "ana.pdf", "application/pdf", pdf));
+        var result = importFile(new MockMultipartFile("file", "ana.pdf", "application/pdf", pdf));
 
         assertEquals("Ana Silva", result.data().path("name").asText());
         assertEquals("ana@example.com", result.data().path("email").asText());
@@ -62,7 +64,7 @@ class ResumeImportServiceTest {
     @Test
     void extractsMonthNameAndCurrentPeriodDespiteCommonOcrTypo() throws Exception {
         byte[] pdf = createTextPdf("Leonardo Jaques\nEXPERIENCE\nMutant | Remoto — São Paulo / Vivo\nSolution Architect / Tech Lead\nJul 2024 — Atuaimente\nArquitetura de sistemas e liderança técnica.");
-        var result = service.importFile(new MockMultipartFile("file", "Leonardo_Jaques_Curriculo.pdf", "application/pdf", pdf));
+        var result = importFile(new MockMultipartFile("file", "Leonardo_Jaques_Curriculo.pdf", "application/pdf", pdf));
 
         assertEquals(1, result.data().path("experience").size());
         assertEquals("Jul 2024 — Atuaimente", result.data().path("experience").get(0).path("period").asText());
@@ -73,7 +75,7 @@ class ResumeImportServiceTest {
     @Test
     void importsEachEducationCourseAndKeepsCompletionStatus() throws Exception {
         byte[] pdf = createTextPdf("Ana Silva\nFORMAÇÃO ACADÊMICA\nPós-Graduação em Engenharia de Software — PUC Minas Previsão 2027\nMBA em Gestão de Projetos — Universidade Castelo Branco Concluído\nCURSOS E CERTIFICAÇÕES\nScrum Master — Scrum.org Concluído\nPower BI — Escola de Dados 2023");
-        var result = service.importFile(new MockMultipartFile("file", "ana.pdf", "application/pdf", pdf));
+        var result = importFile(new MockMultipartFile("file", "ana.pdf", "application/pdf", pdf));
 
         assertEquals(2, result.data().path("education").size());
         assertEquals("Pós-Graduação em Engenharia de Software", result.data().path("education").get(0).path("course").asText());
@@ -91,7 +93,7 @@ class ResumeImportServiceTest {
     @Test
     void extractsPortfolioProjectAndActiveLinkFromPdfSection() throws Exception {
         byte[] pdf = createTextPdf("Ana Silva\nPROJETOS E PORTFÓLIO\nPlataforma de dados\nAnálise e visualização de indicadores\nhttps://example.com/projeto\nFORMAÇÃO ACADÊMICA\nEngenharia — UFPE");
-        var result = service.importFile(new MockMultipartFile("file", "ana.pdf", "application/pdf", pdf));
+        var result = importFile(new MockMultipartFile("file", "ana.pdf", "application/pdf", pdf));
 
         assertEquals(1, result.data().path("projects").size());
         assertEquals("Plataforma de dados", result.data().path("projects").get(0).path("name").asText());
@@ -104,7 +106,7 @@ class ResumeImportServiceTest {
     void importsAllFiveProjectsWhenPdfTextRunsIntoInlinePortfolioHeading() throws Exception {
         String extractedText = "Ana Silva\nRio Card: Escrita de microsserviços integrados no ecossistema financeiro usando Java e Vue.js, além de integrações mobile. PROJETOS & PORTFÓLIO = HidroGeo (Open Source): Ferramenta para monitoramento pluviométrico no RJ. Credit Application System: Sistema transacional para análise e solicitação de crédito escrito em Kotlin, com Virtual Threads. DDD Project Fullstack: Aplicação demonstrativa em TypeScript de Domain-Driven Design. Lab Java Quarkus: Estudo de microsserviços cloud native focados em performance de memória.";
         byte[] pdf = createTextPdf(extractedText);
-        var result = service.importFile(new MockMultipartFile("file", "portfolio.pdf", "application/pdf", pdf));
+        var result = importFile(new MockMultipartFile("file", "portfolio.pdf", "application/pdf", pdf));
 
         var projects = result.data().path("projects");
         assertEquals(5, projects.size(), "Todos os títulos devem entrar na lista de projetos");
@@ -128,7 +130,7 @@ class ResumeImportServiceTest {
             pdf = output.toByteArray();
         }
         MockMultipartFile file = new MockMultipartFile("file", "scan.pdf", "application/pdf", pdf);
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.importFile(file));
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.importFile(file.getOriginalFilename(), file.getContentType(), file.getBytes()));
         assertTrue(error.getMessage().contains("reconhecer texto"));
     }
 
@@ -165,7 +167,7 @@ class ResumeImportServiceTest {
             document.save(output);
             pdf = output.toByteArray();
         }
-        var result = service.importFile(new MockMultipartFile("file", "scan.pdf", "application/pdf", pdf));
+        var result = importFile(new MockMultipartFile("file", "scan.pdf", "application/pdf", pdf));
 
         assertTrue(result.data().path("name").asText().contains("Ana Silva"));
         assertEquals("ana@example.com", result.data().path("email").asText());
@@ -190,5 +192,10 @@ class ResumeImportServiceTest {
             document.save(output);
             return output.toByteArray();
         }
+    }
+
+    private com.cvforge.application.model.ImportedResume importFile(MockMultipartFile file) {
+        try { return service.importFile(file.getOriginalFilename(), file.getContentType(), file.getBytes()); }
+        catch (java.io.IOException e) { throw new AssertionError(e); }
     }
 }

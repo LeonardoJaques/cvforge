@@ -41,6 +41,8 @@ public class JobComparison {
         this.createdAt = LocalDateTime.now();
     }
     public Long getId() { return id; }
+    public void setId(Long value) { this.id = value; }
+    public void setCreatedAt(LocalDateTime value) { this.createdAt = value; }
     public String getUserId() { return userId; }
     public Long getResumeId() { return resumeId; }
     public String getProfileLabel() { return profileLabel; }

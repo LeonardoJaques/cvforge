@@ -1,8 +1,15 @@
-package com.cvforge.service;
-import com.cvforge.entity.JobComparison;
-import com.cvforge.entity.Resume;
-import com.cvforge.repository.JobComparisonRepository;
-import com.cvforge.repository.ResumeRepository;
+package com.cvforge.application.service;
+import com.cvforge.application.model.JobComparisonData;
+import com.cvforge.application.model.ResumeData;
+import com.cvforge.application.port.in.ComparisonResumePdfUseCases;
+import com.cvforge.application.port.in.ComparisonResumePdfUseCases.PdfDownload;
+import com.cvforge.application.port.in.ComparisonResumePdfUseCases.ResumeChange;
+import com.cvforge.application.port.in.ComparisonResumePdfUseCases.ResumePreview;
+import com.cvforge.application.port.in.ComparisonResumePdfUseCases.ResumeUnmetRequirement;
+import com.cvforge.application.port.out.JobComparisonStore;
+import com.cvforge.application.port.out.ResumeStore;
+import com.cvforge.application.port.out.TextCompletionPort;
+import com.cvforge.application.port.out.PdfRenderingPort;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,31 +32,32 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-public class ComparisonResumePdfService {
-    private final JobComparisonRepository comparisons;
-    private final ResumeRepository resumes;
-    private final OpenRouterClient ai;
-    private final PdfGenerationService pdf;
+public class ComparisonResumePdfApplicationService implements ComparisonResumePdfUseCases {
+    private final JobComparisonStore comparisons;
+    private final ResumeStore resumes;
+    private final TextCompletionPort ai;
+    private final PdfRenderingPort pdf;
     private final ObjectMapper mapper;
     private final String model;
     private static final int REVIEW_THRESHOLD = 70;
     private final Map<String, PreviewDraft> drafts = new ConcurrentHashMap<>();
-    public ComparisonResumePdfService(JobComparisonRepository comparisons, ResumeRepository resumes, OpenRouterClient ai,
-            PdfGenerationService pdf, ObjectMapper mapper,
+    public ComparisonResumePdfApplicationService(JobComparisonStore comparisons, ResumeStore resumes, TextCompletionPort ai,
+            PdfRenderingPort pdf, ObjectMapper mapper,
             @Value("${openrouter.resume-model:deepseek/deepseek-chat}") String model) {
         this.comparisons=comparisons; this.resumes=resumes; this.ai=ai; this.pdf=pdf; this.mapper=mapper; this.model=model;
     }
+    @Override
     public ResumePreview preview(Long id, String userId) {
-        JobComparison c=comparisons.findByIdAndUserId(id,userId).orElseThrow(()->new IllegalArgumentException("Comparação não encontrada."));
+        JobComparisonData c=comparisons.findByIdAndUser(id,userId).orElseThrow(()->new IllegalArgumentException("Comparação não encontrada."));
         if(c.getTailoredResumeId()!=null)throw new IllegalStateException("Este currículo já foi salvo. Baixe o PDF na comparação.");
         if(c.getResumeId()==null)throw new IllegalArgumentException("Esta comparação não tem um currículo salvo como origem.");
-        Resume original=resumes.findByIdAndUserId(c.getResumeId(),userId).orElseThrow(()->new IllegalArgumentException("O currículo original não está mais disponível."));
-        ObjectNode before=parse(original.getJsonData());
+        ResumeData original=resumes.findByIdAndUser(c.getResumeId(),userId).orElseThrow(()->new IllegalArgumentException("O currículo original não está mais disponível."));
+        ObjectNode before=parse(original.jsonData());
         ObjectNode analysis=parse(c.getResultJson());
         int matchScore=analysis.path("matchScore").asInt(0);
         List<ResumeUnmetRequirement> unmetRequirements=unmetRequirements(analysis.path("missingRequirements"));
-        String sourceHash=sha256(original.getJsonData()+"\n"+original.getLayout()+"\n"+c.getJobText()+"\n"+write(analysis)+"\n"+model);
-        JobComparison cached=findCachedPreview(c,sourceHash);
+        String sourceHash=sha256(original.jsonData()+"\n"+original.layout()+"\n"+c.getJobText()+"\n"+write(analysis)+"\n"+model);
+        JobComparisonData cached=findCachedPreview(c,sourceHash);
         boolean cacheHit=cached!=null;
         ObjectNode source;
         String filename;
@@ -82,8 +90,8 @@ public class ComparisonResumePdfService {
             applyDescriptions(source,generated.path("projectDescriptions"),"projects");
             applySkills(source,generated.path("skills"));
             source.put("_pdfLanguage",lang);
-            filename=buildFilename(original.getTitle(),analysis.path("companyName").asText(""));
-            layout=original.getLayout();
+            filename=buildFilename(original.title(),analysis.path("companyName").asText(""));
+            layout=original.layout();
             c.setTailoredResumeJson(write(source));
             c.setTailoredResumeTitle(filename);
             c.setTailoredResumeLayout(layout);
@@ -104,18 +112,18 @@ public class ComparisonResumePdfService {
             throw new IllegalStateException("Não foi possível preparar a prévia do currículo.",e);
         }
     }
-    private JobComparison findCachedPreview(JobComparison current,String sourceHash){
+    private JobComparisonData findCachedPreview(JobComparisonData current,String sourceHash){
         String company=companyKey(companyName(current));
         if(company.isBlank())return null;
         LocalDateTime cutoff=LocalDateTime.now().minusDays(14);
         if(isUsableCache(current,company,sourceHash,cutoff))return current;
-        return comparisons.findByUserIdAndTailoredResumeGeneratedAtAfterOrderByTailoredResumeGeneratedAtDesc(current.getUserId(),cutoff).stream()
+        return comparisons.findRecentlyTailoredByUser(current.getUserId(),cutoff).stream()
                 .filter(item->!item.getId().equals(current.getId()))
                 .filter(item->current.getResumeId().equals(item.getResumeId()))
                 .filter(item->isUsableCache(item,company,sourceHash,cutoff))
                 .findFirst().orElse(null);
     }
-    private boolean isUsableCache(JobComparison item,String company,String sourceHash,LocalDateTime cutoff){
+    private boolean isUsableCache(JobComparisonData item,String company,String sourceHash,LocalDateTime cutoff){
         return item.getTailoredResumeJson()!=null&&!item.getTailoredResumeJson().isBlank()
                 &&item.getTailoredResumeTitle()!=null&&!item.getTailoredResumeTitle().isBlank()
                 &&item.getTailoredResumeLayout()!=null&&!item.getTailoredResumeLayout().isBlank()
@@ -123,7 +131,7 @@ public class ComparisonResumePdfService {
                 &&sourceHash.equals(item.getTailoredResumeSourceHash())
                 &&company.equals(companyKey(companyName(item)));
     }
-    private String companyName(JobComparison item){
+    private String companyName(JobComparisonData item){
         try{return mapper.readTree(item.getResultJson()).path("companyName").asText("");}
         catch(Exception e){return "";}
     }
@@ -139,19 +147,20 @@ public class ComparisonResumePdfService {
             return out.toString();
         }catch(Exception e){throw new IllegalStateException("Não foi possível validar a origem do currículo.",e);}
     }
+    @Override
     public synchronized PdfDownload savePreview(Long id,String userId,String token) {
-        JobComparison c=comparisons.findByIdAndUserId(id,userId).orElseThrow(()->new IllegalArgumentException("Comparação não encontrada."));
+        JobComparisonData c=comparisons.findByIdAndUser(id,userId).orElseThrow(()->new IllegalArgumentException("Comparação não encontrada."));
         if(c.getTailoredResumeId()!=null){
-            Resume saved=resumes.findByIdAndUserId(c.getTailoredResumeId(),userId).orElse(null);
+            ResumeData saved=resumes.findByIdAndUser(c.getTailoredResumeId(),userId).orElse(null);
             if(saved!=null)return toPdf(saved);
         }
         if(token==null||token.isBlank())throw new IllegalArgumentException("Gere e revise a prévia antes de salvar o currículo.");
         PreviewDraft draft=drafts.get(token);
         if(draft==null||draft.createdAt().isBefore(Instant.now().minusSeconds(1800)))throw new IllegalArgumentException("A prévia expirou. Gere outra prévia para continuar.");
         if(!draft.comparisonId().equals(id)||!draft.userId().equals(userId))throw new IllegalArgumentException("A prévia não pertence a esta comparação.");
-        Resume saved=resumes.save(new Resume(userId,draft.title(),draft.jsonData(),draft.layout(),"CVForge DeepSeek"));
+        ResumeData saved=resumes.save(new ResumeData(null,userId,draft.title(),draft.jsonData(),draft.layout(),"CVForge DeepSeek",null,null,null));
         c.setTailoredResumeJson(draft.jsonData()); c.setTailoredResumeTitle(draft.title()+".pdf"); c.setTailoredResumeLayout(draft.layout()); c.setTailoredResumeGeneratedAt(LocalDateTime.now()); c.setTailoredResumeSourceHash(draft.sourceHash());
-        c.setTailoredResumeId(saved.getId());comparisons.save(c);
+        c.setTailoredResumeId(saved.id());comparisons.save(c);
         drafts.remove(token,draft);
         return toPdf(saved);
     }
@@ -160,12 +169,8 @@ public class ComparisonResumePdfService {
         if(base.isBlank())base="curriculo";
         return slug(base)+"_"+slug(company)+".pdf";
     }
-    private PdfDownload toPdf(Resume r){return new PdfDownload(pdf.generatePdfFromJson(r.getJsonData(),r.getLayout()),r.getTitle()+".pdf");}
+    private PdfDownload toPdf(ResumeData r){return new PdfDownload(pdf.generatePdfFromJson(r.jsonData(),r.layout()),r.title()+".pdf");}
     private record PreviewDraft(Long comparisonId,String userId,String title,String jsonData,String layout,Instant createdAt,String sourceHash){}
-    public record ResumePreview(String token,String filename,JsonNode data,String layout,List<ResumeChange> changes,boolean cached,int matchScore,List<ResumeUnmetRequirement> unmetRequirements){}
-    public record ResumeUnmetRequirement(String requirement,String reason){}
-    public record ResumeChange(String section,String item,String before,String after){}
-    public record PdfDownload(byte[] bytes,String filename){}
     private ObjectNode parseGenerated(String response) {
         if (response == null || response.isBlank()) throw new IllegalStateException("A IA retornou uma resposta vazia ao gerar o currículo.");
         String json = response.trim();

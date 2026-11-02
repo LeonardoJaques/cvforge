@@ -3,10 +3,11 @@ package com.cvforge.controller;
 import com.cvforge.dto.CreateResumeRequest;
 import com.cvforge.dto.ResumeResponse;
 import com.cvforge.dto.UpdateResumeRequest;
-import com.cvforge.service.PdfGenerationService;
-import com.cvforge.service.ResumeImportService;
+import com.cvforge.application.port.out.PdfRenderingPort;
+import com.cvforge.application.port.in.ResumeImportUseCases;
+import com.cvforge.application.port.in.ProfileTextImportUseCases;
 import com.cvforge.application.port.in.ResumeUseCases;
-import com.cvforge.service.ProfileTextImportService;
+
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,11 +28,11 @@ public class ResumeController {
     private static final Logger log = LoggerFactory.getLogger(ResumeController.class);
 
     private final ResumeUseCases resumeService;
-    private final PdfGenerationService pdfGenerationService;
-    private final ResumeImportService resumeImportService;
-    private final ProfileTextImportService profileTextImportService;
+    private final PdfRenderingPort pdfGenerationService;
+    private final ResumeImportUseCases resumeImportService;
+    private final ProfileTextImportUseCases profileTextImportService;
 
-    public ResumeController(ResumeUseCases resumeService, PdfGenerationService pdfGenerationService, ResumeImportService resumeImportService, ProfileTextImportService profileTextImportService) {
+    public ResumeController(ResumeUseCases resumeService, PdfRenderingPort pdfGenerationService, ResumeImportUseCases resumeImportService, ProfileTextImportUseCases profileTextImportService) {
         this.resumeService = resumeService;
         this.pdfGenerationService = pdfGenerationService;
         this.resumeImportService = resumeImportService;
@@ -42,9 +43,11 @@ public class ResumeController {
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> importResume(@RequestParam("file") MultipartFile file) {
         try {
-            return ResponseEntity.ok(resumeImportService.importFile(file));
+            return ResponseEntity.ok(resumeImportService.importFile(file.getOriginalFilename(), file.getContentType(), file.getBytes()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (java.io.IOException e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", "Não foi possível ler o arquivo enviado."));
         }
     }
 
@@ -64,7 +67,7 @@ public class ResumeController {
     public ResponseEntity<List<ResumeResponse>> getAllResumes(
             @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
         log.info("GET /api/v1/resumes - usuário: {}", userId);
-        List<ResumeResponse> resumes = resumeService.getAllResumes(userId);
+        List<ResumeResponse> resumes = resumeService.getAllResumes(userId).stream().map(ResumeController::toResponse).toList();
         return ResponseEntity.ok(resumes);
     }
 
@@ -75,7 +78,7 @@ public class ResumeController {
             @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
         log.info("GET /api/v1/resumes/{} - usuário: {}", id, userId);
         return resumeService.getResumeById(id, userId)
-                .map(ResponseEntity::ok)
+                .map(ResumeController::toResponse).map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
@@ -85,7 +88,7 @@ public class ResumeController {
             @RequestParam String layout,
             @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
         log.info("GET /api/v1/resumes/search?layout={} - usuário: {}", layout, userId);
-        List<ResumeResponse> resumes = resumeService.getResumesByLayout(userId, layout);
+        List<ResumeResponse> resumes = resumeService.getResumesByLayout(userId, layout).stream().map(ResumeController::toResponse).toList();
         return ResponseEntity.ok(resumes);
     }
 
@@ -95,7 +98,7 @@ public class ResumeController {
             @RequestParam String title,
             @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
         log.info("GET /api/v1/resumes/search/title?title={} - usuário: {}", title, userId);
-        List<ResumeResponse> resumes = resumeService.searchByTitle(userId, title);
+        List<ResumeResponse> resumes = resumeService.searchByTitle(userId, title).stream().map(ResumeController::toResponse).toList();
         return ResponseEntity.ok(resumes);
     }
 
@@ -105,8 +108,7 @@ public class ResumeController {
             @Valid @RequestBody CreateResumeRequest request,
             @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
         log.info("POST /api/v1/resumes - usuário: {}", userId);
-        request.setUserId(userId);
-        ResumeResponse created = resumeService.createResume(request);
+        ResumeResponse created = toResponse(resumeService.createResume(new ResumeUseCases.CreateResumeCommand(userId, request.getTitle(), request.getJsonData(), request.getLayout(), request.getCreatedBy())));
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -117,7 +119,7 @@ public class ResumeController {
             @Valid @RequestBody UpdateResumeRequest request,
             @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
         log.info("PUT /api/v1/resumes/{} - usuário: {}", id, userId);
-        ResumeResponse updated = resumeService.updateResume(id, request, userId);
+        ResumeResponse updated = toResponse(resumeService.updateResume(id, new ResumeUseCases.UpdateResumeCommand(request.getTitle(), request.getJsonData(), request.getLayout()), userId));
         return ResponseEntity.ok(updated);
     }
 
@@ -144,10 +146,10 @@ public class ResumeController {
 
         var resumeOptional = resumeService.getResumeById(id, userId);
         if (resumeOptional.isEmpty()) return ResponseEntity.notFound().build();
-        ResumeResponse resume = resumeOptional.get();
+        var resume = resumeOptional.get();
 
         try {
-            byte[] pdfBytes = pdfGenerationService.generatePdfFromJson(resume.getJsonData(), resume.getLayout());
+            byte[] pdfBytes = pdfGenerationService.generatePdfFromJson(resume.jsonData(), resume.layout());
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=curriculo_" + id + ".pdf")
                     .contentType(MediaType.APPLICATION_PDF)
@@ -179,6 +181,14 @@ public class ResumeController {
             log.error("Erro ao gerar PDF direto: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
+    }
+
+    private static ResumeResponse toResponse(com.cvforge.application.model.ResumeData data) {
+        ResumeResponse response = new ResumeResponse();
+        response.setId(data.id()); response.setUserId(data.userId()); response.setTitle(data.title());
+        response.setJsonData(data.jsonData()); response.setLayout(data.layout()); response.setCreatedBy(data.createdBy());
+        response.setCreatedAt(data.createdAt()); response.setUpdatedAt(data.updatedAt());
+        return response;
     }
 
     /** Retorna contagem de currículos por usuário */

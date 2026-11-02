@@ -1,11 +1,12 @@
 package com.cvforge.controller;
 
-import com.cvforge.service.JobMatchService;
-import com.cvforge.service.ComparisonResumePdfService;
+import com.cvforge.application.port.in.JobMatchUseCases;
+import com.cvforge.application.port.in.JobComparisonUseCases;
+import com.cvforge.application.port.in.ComparisonResumePdfUseCases;
+import com.cvforge.application.port.in.ResumeUseCases;
+import com.cvforge.application.model.JobComparisonData;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.cvforge.entity.JobComparison;
-import com.cvforge.repository.JobComparisonRepository;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,16 +27,16 @@ import java.util.List;
 @RequestMapping("/api/v1/jobs")
 public class JobMatchController {
     private static final Logger log = LoggerFactory.getLogger(JobMatchController.class);
-    private final JobMatchService jobMatch;
-    private final JobComparisonRepository comparisons;
+    private final JobMatchUseCases jobMatch;
+    private final JobComparisonUseCases comparisons;
     private final ObjectMapper mapper;
-    private final ComparisonResumePdfService comparisonResumePdf;
-    public JobMatchController(JobMatchService jobMatch, JobComparisonRepository comparisons, ObjectMapper mapper, ComparisonResumePdfService comparisonResumePdf) {
+    private final ComparisonResumePdfUseCases comparisonResumePdf;
+    public JobMatchController(JobMatchUseCases jobMatch, JobComparisonUseCases comparisons, ObjectMapper mapper, ComparisonResumePdfUseCases comparisonResumePdf) {
         this.jobMatch=jobMatch; this.comparisons=comparisons; this.mapper=mapper; this.comparisonResumePdf=comparisonResumePdf;
     }
 
     @PostMapping("/analyze")
-    public ResponseEntity<?> analyze(@RequestBody JobMatchService.Request request,
+    public ResponseEntity<?> analyze(@RequestBody JobMatchUseCases.Request request,
                                      @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
         try { return ResponseEntity.ok(jobMatch.analyze(request, userId)); }
         catch (IllegalArgumentException e) {
@@ -61,16 +62,13 @@ public class JobMatchController {
     @PostMapping("/comparisons")
     public ResponseEntity<?> save(@RequestBody SaveRequest request,
                                   @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
-        if (request == null || request.result() == null || !request.result().isObject()
-                || request.jobText() == null || request.jobText().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "A análise e a descrição da vaga são obrigatórias."));
-        }
-        if (request.jobText().length() > 25_000) return ResponseEntity.badRequest().body(Map.of("message", "A descrição da vaga excede o limite permitido."));
         try {
-            String language = "en".equalsIgnoreCase(request.language()) ? "en" : "pt";
-            String label = request.profileLabel() == null || request.profileLabel().isBlank() ? "Perfil" : request.profileLabel().trim();
-            JobComparison saved = comparisons.save(new JobComparison(userId, request.resumeId(), label.substring(0, Math.min(100, label.length())), request.jobText().trim(), mapper.writeValueAsString(request.result()), language));
+            JobComparisonData saved = comparisons.save(userId, request==null?null:request.resumeId(),
+                    request==null?null:request.profileLabel(), request==null?null:request.jobText(),
+                    request==null?null:request.result(), request==null?null:request.language());
             return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(saved));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("message", "Não foi possível salvar a comparação."));
         }
@@ -78,7 +76,7 @@ public class JobMatchController {
 
     @GetMapping("/comparisons")
     public List<ComparisonResponse> list(@RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
-        return comparisons.findByUserIdOrderByCreatedAtDesc(userId).stream().map(this::toResponse).toList();
+        return comparisons.list(userId).stream().map(this::toResponse).toList();
     }
 
     @PostMapping(value="/comparisons/{id}/resume-preview", produces=MediaType.APPLICATION_JSON_VALUE)
@@ -98,7 +96,7 @@ public class JobMatchController {
     public ResponseEntity<?> generateComparisonResumePdf(@PathVariable Long id, @RequestBody(required=false) SavePreviewRequest request,
             @RequestHeader(value="Remote-User", required=false, defaultValue="anonimo") String userId) {
       try {
-        ComparisonResumePdfService.PdfDownload file=comparisonResumePdf.savePreview(id,userId,request==null?null:request.token());
+        ComparisonResumePdfUseCases.PdfDownload file=comparisonResumePdf.savePreview(id,userId,request==null?null:request.token());
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=" + file.filename()).contentType(MediaType.APPLICATION_PDF).body(file.bytes());
       } catch(IllegalArgumentException e) { return jsonError(HttpStatus.BAD_REQUEST,e.getMessage()); }
         catch(IllegalStateException e) {
@@ -118,12 +116,10 @@ public class JobMatchController {
     @DeleteMapping("/comparisons/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id,
                                        @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
-        return comparisons.findByIdAndUserId(id, userId).map(item -> {
-            comparisons.delete(item); return ResponseEntity.noContent().<Void>build();
-        }).orElseGet(() -> ResponseEntity.notFound().build());
+        return comparisons.delete(id, userId) ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
     }
 
-    private ComparisonResponse toResponse(JobComparison item) {
+    private ComparisonResponse toResponse(JobComparisonData item) {
         try {
             return new ComparisonResponse(item.getId(), item.getResumeId(), item.getProfileLabel(), item.getJobText(), mapper.readTree(item.getResultJson()), item.getLanguage(), item.getCreatedAt(), item.getTailoredResumeId());
         } catch (Exception e) { throw new IllegalStateException("Saved comparison JSON is invalid.", e); }

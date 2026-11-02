@@ -1,4 +1,6 @@
-package com.cvforge.service;
+package com.cvforge.adapter.out.pdf;
+
+import com.cvforge.application.port.out.PdfRenderingPort;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,11 +13,12 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
 @Service
-public class PdfGenerationService {
+public class PdfGenerationAdapter implements PdfRenderingPort {
 
-    private static final Logger log = LoggerFactory.getLogger(PdfGenerationService.class);
+    private static final Logger log = LoggerFactory.getLogger(PdfGenerationAdapter.class);
     private static final ObjectMapper JSON = new ObjectMapper();
 
+    @Override
     public byte[] generatePdfFromJson(String jsonData, String layout) {
         try {
             if (jsonData == null || jsonData.length() > 350_000) {

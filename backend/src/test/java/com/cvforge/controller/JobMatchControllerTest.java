@@ -3,9 +3,9 @@ package com.cvforge.controller;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import com.cvforge.repository.JobComparisonRepository;
-import com.cvforge.service.ComparisonResumePdfService;
-import com.cvforge.service.JobMatchService;
+import com.cvforge.application.port.in.JobComparisonUseCases;
+import com.cvforge.application.port.in.ComparisonResumePdfUseCases;
+import com.cvforge.application.port.in.JobMatchUseCases;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,15 +27,15 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class JobMatchControllerTest {
 
-    @Mock private JobMatchService jobMatch;
-    @Mock private JobComparisonRepository comparisons;
+    @Mock private JobMatchUseCases jobMatch;
+    @Mock private JobComparisonUseCases comparisons;
     @Mock private ObjectMapper mapper;
-    @Mock private ComparisonResumePdfService comparisonResumePdf;
+    @Mock private ComparisonResumePdfUseCases comparisonResumePdf;
 
     @Test
     void logsOpenRouterFailureWithoutLoggingJobOrResumeText() {
         JobMatchController controller = controller();
-        when(jobMatch.analyze(any(JobMatchService.Request.class), eq("test-user")))
+        when(jobMatch.analyze(any(JobMatchUseCases.Request.class), eq("test-user")))
                 .thenThrow(new IllegalStateException("O OpenRouter não concluiu a solicitação (HTTP 503)."));
 
         Logger logger = (Logger) LoggerFactory.getLogger(JobMatchController.class);
@@ -44,7 +44,7 @@ class JobMatchControllerTest {
         logger.addAppender(appender);
         ResponseEntity<?> response;
         try {
-            response = controller.analyze(new JobMatchService.Request(null, "PROFILE_PRIVATE", "JOB_PRIVATE", "pt"), "test-user");
+            response = controller.analyze(new JobMatchUseCases.Request(null, "PROFILE_PRIVATE", "JOB_PRIVATE", "pt"), "test-user");
         } finally {
             logger.detachAppender(appender);
             appender.stop();
@@ -62,7 +62,7 @@ class JobMatchControllerTest {
     @Test
     void logsUnexpectedAnalysisFailureWithoutInputData() {
         JobMatchController controller = controller();
-        when(jobMatch.analyze(any(JobMatchService.Request.class), eq("test-user")))
+        when(jobMatch.analyze(any(JobMatchUseCases.Request.class), eq("test-user")))
                 .thenThrow(new NullPointerException("private test details"));
 
         Logger logger = (Logger) LoggerFactory.getLogger(JobMatchController.class);
@@ -71,7 +71,7 @@ class JobMatchControllerTest {
         logger.addAppender(appender);
         ResponseEntity<?> response;
         try {
-            response = controller.analyze(new JobMatchService.Request(null, "PROFILE_PRIVATE", "JOB_PRIVATE", "pt"), "test-user");
+            response = controller.analyze(new JobMatchUseCases.Request(null, "PROFILE_PRIVATE", "JOB_PRIVATE", "pt"), "test-user");
         } finally {
             logger.detachAppender(appender);
             appender.stop();
@@ -92,7 +92,7 @@ class JobMatchControllerTest {
         JobMatchController controller = controller();
         byte[] pdf = new byte[]{37, 80, 68, 70};
         when(comparisonResumePdf.savePreview(eq(8L), eq("test-user"), eq("draft-token")))
-                .thenReturn(new ComparisonResumePdfService.PdfDownload(pdf, "curriculo_acme.pdf"));
+                .thenReturn(new ComparisonResumePdfUseCases.PdfDownload(pdf, "curriculo_acme.pdf"));
 
         ResponseEntity<?> response = controller.generateComparisonResumePdf(8L, new JobMatchController.SavePreviewRequest("draft-token"), "test-user");
 

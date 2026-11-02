@@ -1,12 +1,13 @@
-package com.cvforge.service;
+package com.cvforge.application.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.cvforge.dto.ResumeResponse;
+import com.cvforge.application.model.ResumeData;
 import com.cvforge.application.port.in.ResumeUseCases;
 import com.cvforge.application.port.out.TextCompletionPort;
+import com.cvforge.application.port.in.JobMatchUseCases;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
@@ -17,7 +18,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
-public class JobMatchService {
+public class JobMatchApplicationService implements JobMatchUseCases {
     static final int MAX_COMPLETION_TOKENS = 6000;
     static final int MAX_JOB_WORDS = 3000;
     static final int MAX_JOB_CHARACTERS = 25_000;
@@ -26,16 +27,17 @@ public class JobMatchService {
     private final TextCompletionPort openRouter;
     private final ObjectMapper mapper;
 
-    public JobMatchService(ResumeUseCases resumes, TextCompletionPort openRouter, ObjectMapper mapper) {
+    public JobMatchApplicationService(ResumeUseCases resumes, TextCompletionPort openRouter, ObjectMapper mapper) {
         this.resumes = resumes; this.openRouter = openRouter; this.mapper = mapper;
     }
 
+    @Override
     public JsonNode analyze(Request request, String userId) {
         if (request == null) throw new IllegalArgumentException("Informe o currículo e a vaga.");
         String resumeText;
         if (request.resumeId() != null) {
-            ResumeResponse resume = resumes.getResumeById(request.resumeId(), userId).orElseThrow(() -> new IllegalArgumentException("O currículo selecionado não foi encontrado."));
-            resumeText = professionalData(parseResume(resume.getJsonData()));
+            ResumeData resume = resumes.getResumeById(request.resumeId(), userId).orElseThrow(() -> new IllegalArgumentException("O currículo selecionado não foi encontrado."));
+            resumeText = professionalData(parseResume(resume.jsonData()));
         } else if (notBlank(request.profileText())) {
             resumeText = redactContacts(request.profileText().trim());
             if (resumeText.length() > 20_000) resumeText = resumeText.substring(0, 20_000);
@@ -144,5 +146,4 @@ public class JobMatchService {
                 .replaceAll("\\s+", " ").trim();
     }
 
-    public record Request(Long resumeId, String profileText, String jobText, String language) { }
 }

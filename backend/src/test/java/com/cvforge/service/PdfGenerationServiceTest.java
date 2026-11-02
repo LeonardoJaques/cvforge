@@ -1,5 +1,7 @@
 package com.cvforge.service;
 
+import com.cvforge.adapter.out.pdf.PdfGenerationAdapter;
+
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
@@ -8,8 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class PdfGenerationServiceTest {
-    private final PdfGenerationService service = new PdfGenerationService();
+class PdfGenerationAdapterTest {
+    private final PdfGenerationAdapter service = new PdfGenerationAdapter();
 
     @Test
     void exportsAllSixLayoutsAndPreservesEducationAndFormattedText() throws Exception {

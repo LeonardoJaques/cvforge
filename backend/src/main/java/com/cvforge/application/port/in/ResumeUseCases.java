@@ -1,19 +1,20 @@
 package com.cvforge.application.port.in;
 
-import com.cvforge.dto.CreateResumeRequest;
-import com.cvforge.dto.ResumeResponse;
-import com.cvforge.dto.UpdateResumeRequest;
+import com.cvforge.application.model.ResumeData;
 import java.util.List;
 import java.util.Optional;
 
-/** Inbound port for resume CRUD and search use cases. */
+/** Inbound port for resume use cases; independent of HTTP and persistence frameworks. */
 public interface ResumeUseCases {
-    List<ResumeResponse> getAllResumes(String userId);
-    Optional<ResumeResponse> getResumeById(Long id, String userId);
-    List<ResumeResponse> getResumesByLayout(String userId, String layout);
-    List<ResumeResponse> searchByTitle(String userId, String title);
-    ResumeResponse createResume(CreateResumeRequest request);
-    ResumeResponse updateResume(Long id, UpdateResumeRequest request, String userId);
+    List<ResumeData> getAllResumes(String userId);
+    Optional<ResumeData> getResumeById(Long id, String userId);
+    List<ResumeData> getResumesByLayout(String userId, String layout);
+    List<ResumeData> searchByTitle(String userId, String title);
+    ResumeData createResume(CreateResumeCommand request);
+    ResumeData updateResume(Long id, UpdateResumeCommand request, String userId);
     void deleteResume(Long id, String userId);
     long countByUserId(String userId);
+
+    record CreateResumeCommand(String userId, String title, String jsonData, String layout, String createdBy) { }
+    record UpdateResumeCommand(String title, String jsonData, String layout) { }
 }
