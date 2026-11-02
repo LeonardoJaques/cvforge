@@ -1,5 +1,7 @@
 package com.cvforge.service;
 
+import com.cvforge.application.port.in.ResumeUseCases;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,7 +16,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class JobMatchServiceOutputLimitTest {
 
-    @Mock private ResumeService resumes;
+    @Mock private ResumeUseCases resumes;
     @Mock private OpenRouterClient openRouter;
 
     @Test

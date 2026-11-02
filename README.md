@@ -24,10 +24,12 @@ Atualize primeiro o branch `main` no Gitea e sincronize o GitHub a partir dele.
 ## Arquitetura
 
 - **Frontend:** Angular 18, TypeScript e SCSS.
-- **API:** Java 21, Spring Boot 3.4, Spring Security e Spring Data JPA.
+- **API:** Java 27, Spring Boot 4.1, Spring Security e Spring Data JPA; threads virtuais habilitadas para I/O bloqueante.
 - **Banco:** PostgreSQL 16, com migrações Flyway.
 - **Análise de vagas:** OpenRouter, chamado somente pelo backend.
-- **Execução:** Docker Compose e Nginx; em produção, Traefik e autenticação centralizada.
+- **Execução:** Docker Compose e Nginx; em produção, Traefik e autenticação centralizada. A imagem da API é compilada e executada com Java 27.
+
+O backend segue limites hexagonais: controladores acionam portas de entrada; os casos de uso de currículo dependem da porta `ResumeStore`, implementada pelo adaptador JPA, e a análise de vagas depende da porta `TextCompletionPort`, implementada pelo adaptador OpenRouter. `ResumeData` mantém os dados de domínio fora das entidades JPA. O benchmark de concorrência usa Strategy para executar a mesma carga bloqueante com pool de threads tradicionais e com uma thread virtual por tarefa.
 
 A autenticação é delegada a um proxy confiável, que envia o cabeçalho `Remote-User`. A API só confia nesse cabeçalho quando a conexão vem do endereço configurado em `CVFORGE_TRUSTED_PROXY_IP`. Não exponha a API diretamente à Internet nem aceite esse cabeçalho de clientes sem autenticação.
 
@@ -49,7 +51,7 @@ docker compose up --build -d
 
 O Compose de exemplo espera uma rede Docker externa chamada `web`. Adapte rede, portas e regras do proxy antes de publicar. As configurações específicas do VPS não fazem parte do Compose local. A API oferece saúde em `/api/v1/health`.
 
-Para validar os serviços separadamente, use Java 21 e Maven no backend e Node.js 20 no frontend. Os Dockerfiles executam os testes durante o build.
+Para validar os serviços separadamente, use Java 27 e Maven no backend e Node.js 20 no frontend. Os Dockerfiles executam os testes durante o build, incluindo a comparação de tarefas bloqueantes entre estratégias de threads.
 
 ## Deploy no servidor
 
@@ -67,11 +69,11 @@ Este projeto está licenciado sob a **PolyForm Noncommercial License 1.0.0**. Us
 
 CVForge is a web application for creating and importing resumes, editing resume data, exporting PDFs, and comparing a profile with a job description.
 
-It supports six PDF layouts, Portuguese and English, saved job comparisons, and tailored-resume previews. A tailored draft is persisted only after the user confirms the save. Scores below 70% trigger an extra gap review, but never authorize unsupported claims; unmet requirements are shown for review. Preview caching is specific to the resume, job description, and saved analysis. The frontend uses Angular 18; the API uses Java 21 and Spring Boot 3.4; PostgreSQL stores resumes and comparisons; OpenRouter is called by the backend for job analysis.
+It supports six PDF layouts, Portuguese and English, saved job comparisons, and tailored-resume previews. A tailored draft is persisted only after the user confirms the save. Scores below 70% trigger an extra gap review, but never authorize unsupported claims; unmet requirements are shown for review. Preview caching is specific to the resume, job description, and saved analysis. The frontend uses Angular 18; the API uses Java 27 and Spring Boot 4.1 with virtual threads enabled for blocking I/O; PostgreSQL stores resumes and comparisons; OpenRouter is called by the backend for job analysis. Resume use cases depend on a persistence port implemented by the JPA adapter, and job analysis uses a completion port implemented by the OpenRouter adapter.
 
 **Gitea is the canonical source.** Update its `main` branch first, then synchronize the public copy at [LeonardoJaques/cvforge](https://github.com/LeonardoJaques/cvforge).
 
-Copy `.env.example` to `.env`, replace all placeholders, configure a trusted authenticated reverse proxy that sets `Remote-User`, and run `docker compose up --build -d`. The sample Compose file expects an external Docker network named `web`. Do not expose the API directly to the Internet. The API health endpoint is `/api/v1/health`.
+Build the API with Java 27 (the Dockerfile provides this toolchain), copy `.env.example` to `.env`, replace all placeholders, configure a trusted authenticated reverse proxy that sets `Remote-User`, and run `docker compose up --build -d`. The sample Compose file expects an external Docker network named `web`. Do not expose the API directly to the Internet. The API health endpoint is `/api/v1/health`.
 
 The manual Jenkins job `cvforge-deploy` checks out the Gitea `main` branch and deploys the exact commit used by that build. It validates Compose and the database, builds and tests the API and frontend, updates only those two services, checks health, and attempts rollback on failure. It does not restart PostgreSQL.
 

@@ -1,5 +1,5 @@
 # ===== Estágio de build =====
-FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+FROM maven:3.10.0-eclipse-temurin-27-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-por tesseract-ocr-data-eng
 COPY pom.xml .
@@ -7,7 +7,7 @@ COPY src/ ./src/
 RUN mvn clean package -B
 
 # ===== Estágio runtime =====
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:27-jre-alpine
 WORKDIR /app
 RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-por tesseract-ocr-data-eng
 

@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.cvforge.dto.ResumeResponse;
+import com.cvforge.application.port.in.ResumeUseCases;
+import com.cvforge.application.port.out.TextCompletionPort;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
@@ -20,11 +22,11 @@ public class JobMatchService {
     static final int MAX_JOB_WORDS = 3000;
     static final int MAX_JOB_CHARACTERS = 25_000;
     private static final Pattern JOB_BOARD_BOILERPLATE = Pattern.compile("(?iu)^(?:apply now|easy apply|save job|report this job|show more|show less|see more jobs|similar jobs|sign in|join linkedin)(?:[.!])?$");
-    private final ResumeService resumes;
-    private final OpenRouterClient openRouter;
+    private final ResumeUseCases resumes;
+    private final TextCompletionPort openRouter;
     private final ObjectMapper mapper;
 
-    public JobMatchService(ResumeService resumes, OpenRouterClient openRouter, ObjectMapper mapper) {
+    public JobMatchService(ResumeUseCases resumes, TextCompletionPort openRouter, ObjectMapper mapper) {
         this.resumes = resumes; this.openRouter = openRouter; this.mapper = mapper;
     }
 

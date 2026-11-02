@@ -1,5 +1,7 @@
 package com.cvforge.service;
 
+import com.cvforge.application.port.out.TextCompletionPort;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -14,7 +16,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 
 @Service
-public class OpenRouterClient {
+public class OpenRouterClient implements TextCompletionPort {
     private final ObjectMapper mapper;
     private final String apiKey;
     private final String model;
@@ -28,7 +30,9 @@ public class OpenRouterClient {
         this.model = model == null || model.isBlank() ? "openrouter/free" : model.trim();
     }
 
+    @Override
     public String complete(String system, String user, int maxTokens) { return complete(system, user, maxTokens, model); }
+    @Override
     public String complete(String system, String user, int maxTokens, String requestedModel) {
         if (apiKey.isBlank()) throw new IllegalStateException("A análise com IA não está configurada no backend.");
         ObjectNode body = mapper.createObjectNode();

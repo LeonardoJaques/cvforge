@@ -8,6 +8,13 @@ openrouter:
 spring:
   application:
     name: cvforge-api
+  threads:
+    virtual:
+      enabled: true
+  main:
+    keep-alive: true
+  jackson:
+    use-jackson2-defaults: true
   datasource:
     url: jdbc:postgresql://localhost:5432/cvforge
     username: cvforge

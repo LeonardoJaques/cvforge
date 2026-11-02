@@ -5,7 +5,7 @@ import com.cvforge.dto.ResumeResponse;
 import com.cvforge.dto.UpdateResumeRequest;
 import com.cvforge.service.PdfGenerationService;
 import com.cvforge.service.ResumeImportService;
-import com.cvforge.service.ResumeService;
+import com.cvforge.application.port.in.ResumeUseCases;
 import com.cvforge.service.ProfileTextImportService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -26,12 +26,12 @@ public class ResumeController {
 
     private static final Logger log = LoggerFactory.getLogger(ResumeController.class);
 
-    private final ResumeService resumeService;
+    private final ResumeUseCases resumeService;
     private final PdfGenerationService pdfGenerationService;
     private final ResumeImportService resumeImportService;
     private final ProfileTextImportService profileTextImportService;
 
-    public ResumeController(ResumeService resumeService, PdfGenerationService pdfGenerationService, ResumeImportService resumeImportService, ProfileTextImportService profileTextImportService) {
+    public ResumeController(ResumeUseCases resumeService, PdfGenerationService pdfGenerationService, ResumeImportService resumeImportService, ProfileTextImportService profileTextImportService) {
         this.resumeService = resumeService;
         this.pdfGenerationService = pdfGenerationService;
         this.resumeImportService = resumeImportService;

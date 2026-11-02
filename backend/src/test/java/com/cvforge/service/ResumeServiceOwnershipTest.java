@@ -1,83 +1,62 @@
 package com.cvforge.service;
 
-import com.cvforge.dto.UpdateResumeRequest;
+import com.cvforge.application.model.ResumeData;
+import com.cvforge.application.service.ResumeApplicationService;
+import com.cvforge.application.port.out.ResumeStore;
 import com.cvforge.dto.CreateResumeRequest;
-import com.cvforge.entity.Resume;
-import com.cvforge.repository.ResumeRepository;
+import com.cvforge.dto.UpdateResumeRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
+import java.time.LocalDateTime;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ResumeServiceOwnershipTest {
+    @Mock private ResumeStore resumeStore;
+    @InjectMocks private ResumeApplicationService resumeService;
 
-    @Mock
-    private ResumeRepository resumeRepository;
-
-    @InjectMocks
-    private ResumeService resumeService;
-
-    @Test
-    void cannotReadResumeOwnedByAnotherUser() {
-        when(resumeRepository.findByIdAndUserId(42L, "alice")).thenReturn(Optional.empty());
-
+    @Test void cannotReadResumeOwnedByAnotherUser() {
+        when(resumeStore.findByIdAndUser(42L, "alice")).thenReturn(Optional.empty());
         assertTrue(resumeService.getResumeById(42L, "alice").isEmpty());
-        verify(resumeRepository).findByIdAndUserId(42L, "alice");
+        verify(resumeStore).findByIdAndUser(42L, "alice");
     }
-
-    @Test
-    void cannotUpdateResumeOwnedByAnotherUser() {
-        when(resumeRepository.findByIdAndUserId(42L, "alice")).thenReturn(Optional.empty());
-
-        assertThrows(IllegalArgumentException.class,
-                () -> resumeService.updateResume(42L, new UpdateResumeRequest(), "alice"));
-        verify(resumeRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    @Test void cannotUpdateResumeOwnedByAnotherUser() {
+        when(resumeStore.findByIdAndUser(42L, "alice")).thenReturn(Optional.empty());
+        assertThrows(IllegalArgumentException.class, () -> resumeService.updateResume(42L, new UpdateResumeRequest(), "alice"));
+        verify(resumeStore, never()).save(any());
     }
-
-    @Test
-    void cannotDeleteResumeOwnedByAnotherUser() {
-        when(resumeRepository.findByIdAndUserId(42L, "alice")).thenReturn(Optional.empty());
-
+    @Test void cannotDeleteResumeOwnedByAnotherUser() {
+        when(resumeStore.findByIdAndUser(42L, "alice")).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> resumeService.deleteResume(42L, "alice"));
-        verify(resumeRepository, never()).delete((com.cvforge.entity.Resume) org.mockito.ArgumentMatchers.any());
+        verify(resumeStore, never()).delete(any());
     }
-
-    @Test
-    void createsAndThenDeletesAResumeOwnedByTheSameUser() {
+    @Test void createsAndThenDeletesAResumeOwnedByTheSameUser() {
         CreateResumeRequest request = new CreateResumeRequest();
-        request.setUserId("leo");
-        request.setTitle("CVForge import test");
-        request.setJsonData("{\"name\":\"Leonardo Jaques\"}");
-        request.setLayout("ats");
-        request.setCreatedBy("CVForge test");
-        when(resumeRepository.save(any(Resume.class))).thenAnswer(invocation -> {
-            Resume resume = invocation.getArgument(0);
-            resume.setId(91L);
-            return resume;
+        request.setUserId("leo"); request.setTitle("CVForge import test");
+        request.setJsonData("{\"name\":\"Leonardo Jaques\"}"); request.setLayout("ats"); request.setCreatedBy("CVForge test");
+        when(resumeStore.save(any())).thenAnswer(invocation -> {
+            ResumeData data = invocation.getArgument(0);
+            return data.withIdAndTimestamps(91L, LocalDateTime.now(), LocalDateTime.now(), 0);
         });
-
         var created = resumeService.createResume(request);
-        Resume persisted = new Resume("leo", "CVForge import test", "{\"name\":\"Leonardo Jaques\"}", "ATS", "CVForge test");
-        persisted.setId(91L);
-        when(resumeRepository.findByIdAndUserId(91L, "leo")).thenReturn(Optional.of(persisted));
-
+        ResumeData persisted = new ResumeData(91L, "leo", "CVForge import test", "{\"name\":\"Leonardo Jaques\"}", "ATS", "CVForge test", LocalDateTime.now(), LocalDateTime.now(), 0);
+        when(resumeStore.findByIdAndUser(91L, "leo")).thenReturn(Optional.of(persisted));
         resumeService.deleteResume(91L, "leo");
-
         assertEquals(91L, created.getId());
-        verify(resumeRepository).save(argThat(resume -> resume.getJsonData().equals("{\"name\":\"Leonardo Jaques\"}") && resume.getLayout().equals("ATS")));
-        verify(resumeRepository).delete(persisted);
+        verify(resumeStore).save(argThat(data -> data.jsonData().equals("{\"name\":\"Leonardo Jaques\"}") && data.layout().equals("ATS")));
+        verify(resumeStore).delete(persisted);
+    }
+    @Test void rejectsInvalidLayoutBeforeCallingPersistence() {
+        CreateResumeRequest request = new CreateResumeRequest(); request.setUserId("leo"); request.setTitle("CV");
+        request.setJsonData("{}"); request.setLayout("UNKNOWN");
+        assertThrows(IllegalArgumentException.class, () -> resumeService.createResume(request));
+        verifyNoInteractions(resumeStore);
     }
 }

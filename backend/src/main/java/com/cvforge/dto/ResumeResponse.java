@@ -15,19 +15,6 @@ public class ResumeResponse {
 
     public ResumeResponse() {}
 
-    public static ResumeResponse fromEntity(com.cvforge.entity.Resume resume) {
-        ResumeResponse response = new ResumeResponse();
-        response.setId(resume.getId());
-        response.setUserId(resume.getUserId());
-        response.setTitle(resume.getTitle());
-        response.setJsonData(resume.getJsonData());
-        response.setLayout(resume.getLayout());
-        response.setCreatedBy(resume.getCreatedBy());
-        response.setCreatedAt(resume.getCreatedAt());
-        response.setUpdatedAt(resume.getUpdatedAt());
-        return response;
-    }
-
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
