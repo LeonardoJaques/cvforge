@@ -4,6 +4,15 @@ Auditoria do checkout local da aplicação usada em `jaquesprojetos.com.br/cvfor
 O objetivo deste arquivo é registrar lacunas verificáveis e servir de checklist
 para revisão das correções. Nenhum código da aplicação foi alterado nesta auditoria.
 
+## Atualização: comparações salvas
+
+A API usa objetos JSON do Jackson 2, mas o Spring Boot 4 podia serializá-los com
+outro conversor. Isso impedia a interface de receber corretamente campos já salvos,
+como `matchScore` e `companyName`. A configuração da API usa agora o conversor
+compatível; o cartão preserva a nota e a empresa existentes e indica ausência de
+nota sem fabricar um valor. Para uma empresa ausente, a interface só tenta obter
+um nome quando o texto da vaga contém um marcador explícito.
+
 ## Escopo e limite dos dados
 
 - O repositório não contém currículo de exemplo, catálogo ou fixtures com uma lista

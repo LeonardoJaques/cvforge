@@ -8,6 +8,10 @@ openrouter:
 spring:
   application:
     name: cvforge-api
+  http:
+    converters:
+      # The API uses Jackson 2 JsonNode at its HTTP boundaries.
+      preferred-json-mapper: jackson2
   threads:
     virtual:
       enabled: true
