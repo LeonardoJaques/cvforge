@@ -49,57 +49,7 @@
     </div>
     <section class="saved-comparisons" *ngIf="comparisons.length" aria-labelledby="saved-comparisons-title">
       <div class="saved-comparisons-heading"><h3 id="saved-comparisons-title">{{ i18n.text('savedComparisons') }}</h3><button type="button" class="text-action" (click)="loadComparisons()">{{ i18n.text('refreshComparisons') }} ↻</button></div>
-      <div class="comparison-list">
-        <article class="comparison-card" *ngFor="let item of comparisons">
-          <button class="comparison-open-button" type="button" (click)="openComparison(item)" [attr.aria-expanded]="expandedComparisonId === item.id">
-            <span class="comparison-score">{{ item.savedScore }}%</span>
-            <span class="comparison-copy">
-              <b>{{ item.profileLabel }}</b>
-              <span class="comparison-company">{{ item.result.companyName || i18n.text('companyNotProvided') }}</span>
-              <span>{{ item.jobText }}</span>
-              <small>{{ i18n.text('savedOn') }} {{ formatDate(item.createdAt) }}</small>
-            </span>
-            <span class="comparison-open" aria-hidden="true">&#8599;</span>
-          </button>
-          <div class="saved-comparison-details" *ngIf="expandedComparisonId === item.id">
-            <section class="match-summary">
-              <h3>{{ i18n.text('matchSummary') }}</h3>
-              <p>{{ item.result.summary || '-' }}</p>
-            </section>
-            <div class="match-columns">
-              <section>
-                <h3>{{ i18n.text('matchingRequirements') }}</h3>
-                <ul><li *ngFor="let evidence of item.result.matchingRequirements || []"><b>{{ evidence.requirement }}</b><span>{{ evidence.evidence }}</span></li></ul>
-                <p class="saved-comparison-empty" *ngIf="!item.result.matchingRequirements?.length">&mdash;</p>
-              </section>
-              <section>
-                <h3>{{ i18n.text('missingRequirements') }}</h3>
-                <ul><li *ngFor="let gap of item.result.missingRequirements || []"><b>{{ gap.requirement }}</b><span>{{ gap.reason }}</span></li></ul>
-                <p class="saved-comparison-empty" *ngIf="!item.result.missingRequirements?.length">&mdash;</p>
-              </section>
-            </div>
-            <section class="match-suggestions">
-              <h3>{{ i18n.text('resumeSuggestions') }}</h3>
-              <ul><li *ngFor="let suggestion of item.result.resumeSuggestions || []">{{ suggestion }}</li></ul>
-              <p class="saved-comparison-empty" *ngIf="!item.result.resumeSuggestions?.length">&mdash;</p>
-            </section>
-            <section class="match-suggestions" *ngIf="item.result.interviewQuestions?.length">
-              <h3>{{ i18n.text('interviewQuestions') }}</h3>
-              <ul><li *ngFor="let question of item.result.interviewQuestions">{{ question }}</li></ul>
-            </section>
-            <section class="match-keywords" *ngIf="item.result.keywords?.length">
-              <h3>{{ i18n.text('jobKeywords') }}</h3>
-              <span *ngFor="let keyword of item.result.keywords">{{ keyword }}</span>
-            </section>
-            <p class="privacy-note" *ngIf="item.result.disclaimer">{{ item.result.disclaimer }}</p>
-          </div>
-          <button class="button button-small button-outline comparison-pdf-button" type="button" [disabled]="(!item.resumeId && !item.tailoredResumeId) || comparisonPdfId !== null" (click)="downloadComparisonPdf(item)">
-            <span class="spinner" *ngIf="comparisonPdfId === item.id" aria-hidden="true"></span>
-            {{ comparisonPdfId === item.id ? i18n.text('comparisonPdfGenerating') : (item.tailoredResumeId ? i18n.text('comparisonPdfDownload') : i18n.text('comparisonPdfButton')) }}
-          </button>
-          <small class="comparison-pdf-hint" *ngIf="!item.resumeId && !item.tailoredResumeId">{{ i18n.text('comparisonPdfUnavailable') }}</small>
-        </article>
-      </div><p class="import-error comparison-pdf-error" role="alert" *ngIf="comparisonPdfError">{{ comparisonPdfError }}</p>
+      <div class="comparison-list"><article class="comparison-card" *ngFor="let item of comparisons"><button class="comparison-open-button" type="button" (click)="openComparison(item)"><span class="comparison-score">{{ item.savedScore }}%</span><span class="comparison-copy"><b>{{ item.profileLabel }}</b><span class="comparison-company">{{ item.result.companyName || i18n.text('companyNotProvided') }}</span><span>{{ item.jobText }}</span><small>{{ i18n.text('savedOn') }} {{ formatDate(item.createdAt) }}</small></span><span class="comparison-open">↗</span></button><button class="button button-small button-outline comparison-pdf-button" type="button" [disabled]="(!item.resumeId && !item.tailoredResumeId) || comparisonPdfId !== null" (click)="downloadComparisonPdf(item)"><span class="spinner" *ngIf="comparisonPdfId === item.id" aria-hidden="true"></span>{{ comparisonPdfId === item.id ? i18n.text('comparisonPdfGenerating') : (item.tailoredResumeId ? i18n.text('comparisonPdfDownload') : i18n.text('comparisonPdfButton')) }}</button><small class="comparison-pdf-hint" *ngIf="!item.resumeId && !item.tailoredResumeId">{{ i18n.text('comparisonPdfUnavailable') }}</small></article></div><p class="import-error comparison-pdf-error" role="alert" *ngIf="comparisonPdfError">{{ comparisonPdfError }}</p>
     </section>
     <p class="import-error" role="alert" *ngIf="comparisonError && !jobAnalysis">{{ comparisonError }}</p>
   </section>
