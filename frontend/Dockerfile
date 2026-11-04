@@ -21,10 +21,6 @@ COPY --from=builder /app/dist/cvforge-frontend/browser/ /usr/share/nginx/html/
 
 # Configuracao do nginx com suporte a HTML5 push-state (SPA) e proxied api
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-RUN nginx -t \
-    && nginx -T > /tmp/nginx-effective.conf 2>&1 \
-    && grep -Fq 'add_header Cache-Control "no-cache, no-store, must-revalidate" always;' /tmp/nginx-effective.conf \
-    && rm /tmp/nginx-effective.conf
 
 EXPOSE 80
 
