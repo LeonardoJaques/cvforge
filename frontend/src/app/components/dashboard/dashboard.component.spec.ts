@@ -50,7 +50,8 @@ describe('DashboardComponent saved comparisons', () => {
   beforeEach(async () => {
     const resumeService = {
       list: () => of([]),
-      listJobComparisons: () => of([comparison])
+      listJobComparisons: () => of([comparison]),
+      saveJobComparison: () => of({ ...comparison, id: 14 })
     };
     const i18n = {
       text: (key: string) => labels[key] ?? key,
@@ -70,16 +71,13 @@ describe('DashboardComponent saved comparisons', () => {
     fixture.detectChanges();
   });
 
-  it('expands a saved comparison and renders its four analysis sections', () => {
-    const button = fixture.nativeElement.querySelector('.comparison-open-button') as HTMLButtonElement;
-    expect(fixture.nativeElement.querySelector('.saved-comparison-details')).toBeNull();
+  it('shows the newest saved comparison details when the list loads', () => {
+    const card = fixture.nativeElement.querySelector('.comparison-card') as HTMLElement;
+    const button = card.querySelector('.comparison-open-button') as HTMLButtonElement;
+    const details = card.querySelector('.saved-comparison-details') as HTMLElement;
 
-    button.click();
-    fixture.detectChanges();
-
-    const details = fixture.nativeElement.querySelector('.saved-comparison-details') as HTMLElement;
-    expect(details).not.toBeNull();
     expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(details).not.toBeNull();
 
     const text = details.textContent ?? '';
     expect(text).toContain('SUMMARY');
@@ -92,15 +90,35 @@ describe('DashboardComponent saved comparisons', () => {
     expect(text).toContain('Add measurable team outcomes.');
   });
 
-  it('collapses the inline analysis when the same comparison is clicked again', () => {
-    const button = fixture.nativeElement.querySelector('.comparison-open-button') as HTMLButtonElement;
+  it('allows the saved comparison details to be collapsed and reopened', () => {
+    const card = fixture.nativeElement.querySelector('.comparison-card') as HTMLElement;
+    const button = card.querySelector('.comparison-open-button') as HTMLButtonElement;
 
     button.click();
     fixture.detectChanges();
-    button.click();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('.saved-comparison-details')).toBeNull();
+    expect(card.querySelector('.saved-comparison-details')).toBeNull();
     expect(button.getAttribute('aria-expanded')).toBe('false');
+
+    button.click();
+    fixture.detectChanges();
+    expect(card.querySelector('.saved-comparison-details')).not.toBeNull();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('opens a comparison immediately after it is saved', () => {
+    const component = fixture.componentInstance;
+    component.jobAnalysis = result;
+    component.jobDescription = comparison.jobText;
+    component.saveComparison();
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.comparison-card') as HTMLElement;
+    const button = card.querySelector('.comparison-open-button') as HTMLButtonElement;
+    const details = card.querySelector('.saved-comparison-details') as HTMLElement;
+
+    expect(card.textContent).toContain('SUMMARY');
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(details.textContent).toContain('Strong technical leadership with people-management gaps.');
+    expect(details.textContent).toContain('Add measurable team outcomes.');
   });
 });

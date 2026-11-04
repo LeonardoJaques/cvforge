@@ -57,7 +57,15 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void { this.load(); this.loadComparisons(); }
   loadComparisons(): void {
-    this.resumesApi.listJobComparisons().subscribe({ next: data => this.comparisons = (data ?? []).map(item => this.comparisonSnapshot(item)), error: () => this.comparisonError = this.i18n.text('comparisonLoadError') });
+    this.resumesApi.listJobComparisons().subscribe({
+      next: data => {
+        this.comparisons = (data ?? []).map(item => this.comparisonSnapshot(item));
+        if (!this.comparisons.some(item => item.id === this.expandedComparisonId)) {
+          this.expandedComparisonId = this.comparisons[0]?.id ?? null;
+        }
+      },
+      error: () => this.comparisonError = this.i18n.text('comparisonLoadError')
+    });
   }
   load(): void {
     this.loading = true; this.error = false;
@@ -146,7 +154,7 @@ export class DashboardComponent implements OnInit {
     };
     if (this.matchSource === 'saved' && this.matchResumeId) request.resumeId = this.matchResumeId;
     this.resumesApi.saveJobComparison(request).subscribe({
-      next: saved => { const snapshot = this.comparisonSnapshot(saved); this.comparisons = [snapshot, ...this.comparisons.filter(item => item.id !== saved.id)]; this.savingComparison = false; this.comparisonSaved = true; },
+      next: saved => { const snapshot = this.comparisonSnapshot(saved); this.comparisons = [snapshot, ...this.comparisons.filter(item => item.id !== saved.id)]; this.expandedComparisonId = saved.id; this.savingComparison = false; this.comparisonSaved = true; },
       error: () => { this.savingComparison = false; this.comparisonError = this.i18n.text('comparisonSaveError'); }
     });
   }
