@@ -66,9 +66,16 @@ export class DashboardComponent implements OnInit {
     });
   }
   get filtered(): ResumeRecord[] {
-    const needle = this.query.trim().toLocaleLowerCase();
-    return this.resumes.filter(item => (this.layoutFilter === 'ALL' || item.layout === this.layoutFilter)
-      && (!needle || `${item.title} ${this.resumesApi.parse(item).name} ${this.resumesApi.parse(item).headline}`.toLocaleLowerCase().includes(needle)));
+    const normalizeSearchText = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
+    const needle = normalizeSearchText(this.query.trim());
+    return this.resumes.filter(item => {
+      if (this.layoutFilter !== 'ALL' && item.layout !== this.layoutFilter) return false;
+      if (!needle) return true;
+
+      const data = this.resumesApi.parse(item);
+      const experienceTerms = data.experience.flatMap(entry => [entry.role, entry.company]);
+      return normalizeSearchText([item.title, data.name, data.headline, ...experienceTerms].join(' ')).includes(needle);
+    });
   }
   data(item: ResumeRecord) { return this.resumesApi.parse(item); }
   initials(item: ResumeRecord): string { return this.resumesApi.initials(this.data(item).name || item.title); }
