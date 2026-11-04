@@ -38,6 +38,7 @@ export class DashboardComponent implements OnInit {
   companyName = '';
   analyzingJob = false;
   jobAnalysis: JobMatchResult | null = null;
+  expandedComparisonId: number | null = null;
   jobError = '';
   comparisons: SavedComparisonCard[] = [];
   savingComparison = false;
@@ -230,10 +231,14 @@ export class DashboardComponent implements OnInit {
     }
   }
   openComparison(item: SavedComparisonCard): void {
-    this.jobAnalysis = this.copyResult(item.result); this.jobDescription = item.jobText; this.companyName = item.result.companyName ?? ''; this.comparisonSaved = true; this.comparisonError = '';
+    if (this.expandedComparisonId === item.id) { this.expandedComparisonId = null; return; }
+    this.expandedComparisonId = item.id;
+    this.jobAnalysis = this.copyResult(item.result);
+    this.jobDescription = item.jobText;
+    this.companyName = item.result.companyName ?? '';
+    this.comparisonSaved = true;
+    this.comparisonError = '';
     if (item.resumeId && this.resumes.some(resume => resume.id === item.resumeId)) { this.matchSource = 'saved'; this.matchResumeId = item.resumeId; }
-    const panel = document.querySelector('.job-match-panel');
-    if (panel) window.scrollTo({ top: panel.getBoundingClientRect().top + window.scrollY - 24, behavior: 'smooth' });
   }
   private extractCompanyName(text: string): string {
     const patterns = [
