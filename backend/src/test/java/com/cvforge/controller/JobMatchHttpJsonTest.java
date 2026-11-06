@@ -7,8 +7,8 @@ import com.cvforge.application.port.in.JobComparisonUseCases;
 import com.cvforge.application.port.in.JobMatchUseCases;
 import com.cvforge.application.port.in.ResumeImportUseCases;
 import com.cvforge.application.port.in.ResumeUseCases;
+import com.cvforge.application.port.in.ResumePdfUseCases;
 import com.cvforge.application.port.in.ProfileTextImportUseCases;
-import com.cvforge.application.port.out.PdfRenderingPort;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -39,7 +39,7 @@ class JobMatchHttpJsonTest {
     @MockitoBean private ResumeUseCases resumes;
     @MockitoBean private ResumeImportUseCases resumeImport;
     @MockitoBean private ProfileTextImportUseCases profileImport;
-    @MockitoBean private PdfRenderingPort pdf;
+    @MockitoBean private ResumePdfUseCases resumePdf;
 
     @Test
     void savedComparisonPreservesNestedResultAndDateOnTheWire() throws Exception {
