@@ -1,6 +1,7 @@
 package com.cvforge.adapter.out.ai;
 
 import com.cvforge.application.port.out.TextCompletionPort;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ public class CircuitBreakingTextCompletionAdapter implements TextCompletionPort 
     private long openedAtMillis;
     private State state = State.CLOSED;
 
+    @Autowired
     public CircuitBreakingTextCompletionAdapter(OpenRouterAdapter delegate,
             @Value("${openrouter.circuit-breaker.failure-threshold:3}") int failureThreshold,
             @Value("${openrouter.circuit-breaker.open-seconds:30}") long openSeconds,
