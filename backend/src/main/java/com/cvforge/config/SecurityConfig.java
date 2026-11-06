@@ -1,6 +1,7 @@
 package com.cvforge.config;
 
 import com.cvforge.security.RemoteUserAuthenticationFilter;
+import com.cvforge.security.ApiAbuseProtectionFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -24,7 +25,8 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(new RemoteUserAuthenticationFilter(), AnonymousAuthenticationFilter.class);
+            .addFilterBefore(new RemoteUserAuthenticationFilter(), AnonymousAuthenticationFilter.class)
+            .addFilterAfter(new ApiAbuseProtectionFilter(), AnonymousAuthenticationFilter.class);
 
         return http.build();
     }

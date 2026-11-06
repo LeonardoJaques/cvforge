@@ -15,6 +15,10 @@ spring:
   threads:
     virtual:
       enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   main:
     keep-alive: true
   jackson:

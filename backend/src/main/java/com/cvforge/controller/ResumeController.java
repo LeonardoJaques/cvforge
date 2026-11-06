@@ -3,7 +3,7 @@ package com.cvforge.controller;
 import com.cvforge.dto.CreateResumeRequest;
 import com.cvforge.dto.ResumeResponse;
 import com.cvforge.dto.UpdateResumeRequest;
-import com.cvforge.application.port.out.PdfRenderingPort;
+import com.cvforge.application.port.in.ResumePdfUseCases;
 import com.cvforge.application.port.in.ResumeImportUseCases;
 import com.cvforge.application.port.in.ProfileTextImportUseCases;
 import com.cvforge.application.port.in.ResumeUseCases;
@@ -28,13 +28,13 @@ public class ResumeController {
     private static final Logger log = LoggerFactory.getLogger(ResumeController.class);
 
     private final ResumeUseCases resumeService;
-    private final PdfRenderingPort pdfGenerationService;
+    private final ResumePdfUseCases resumePdf;
     private final ResumeImportUseCases resumeImportService;
     private final ProfileTextImportUseCases profileTextImportService;
 
-    public ResumeController(ResumeUseCases resumeService, PdfRenderingPort pdfGenerationService, ResumeImportUseCases resumeImportService, ProfileTextImportUseCases profileTextImportService) {
+    public ResumeController(ResumeUseCases resumeService, ResumePdfUseCases resumePdf, ResumeImportUseCases resumeImportService, ProfileTextImportUseCases profileTextImportService) {
         this.resumeService = resumeService;
-        this.pdfGenerationService = pdfGenerationService;
+        this.resumePdf = resumePdf;
         this.resumeImportService = resumeImportService;
         this.profileTextImportService = profileTextImportService;
     }
@@ -144,16 +144,13 @@ public class ResumeController {
             @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
         log.info("GET /api/v1/resumes/{}/pdf - usuário: {}", id, userId);
 
-        var resumeOptional = resumeService.getResumeById(id, userId);
-        if (resumeOptional.isEmpty()) return ResponseEntity.notFound().build();
-        var resume = resumeOptional.get();
-
         try {
-            byte[] pdfBytes = pdfGenerationService.generatePdfFromJson(resume.jsonData(), resume.layout());
+            var download = resumePdf.forSavedResume(id, userId);
+            if (download.isEmpty()) return ResponseEntity.notFound().build();
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=curriculo_" + id + ".pdf")
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + download.get().filename())
                     .contentType(MediaType.APPLICATION_PDF)
-                    .body(pdfBytes);
+                    .body(download.get().bytes());
         } catch (Exception e) {
             log.error("Erro ao gerar PDF do currículo {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
@@ -170,7 +167,7 @@ public class ResumeController {
         String layout = payload.getOrDefault("layout", "ATS");
 
         try {
-            byte[] pdfBytes = pdfGenerationService.generatePdfFromJson(jsonData, layout);
+            byte[] pdfBytes = resumePdf.fromJson(jsonData, layout);
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=curriculo.pdf")
                     .contentType(MediaType.APPLICATION_PDF)
