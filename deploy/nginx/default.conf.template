@@ -1,6 +1,8 @@
 resolver 127.0.0.11 valid=5s ipv6=off;
 include /etc/nginx/cvforge/upstream-active.conf;
 
+map_hash_bucket_size 128;
+
 map $http_x_cvforge_proxy_token $cvforge_trusted_hop {
     default 0;
     "${CVFORGE_PROXY_TOKEN}" 1;
