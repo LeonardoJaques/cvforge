@@ -24,6 +24,7 @@ public class CircuitBreakingTextCompletionAdapter implements TextCompletionPort 
 
     private int consecutiveFailures;
     private long openedAtMillis;
+    private long generation;
     private State state = State.CLOSED;
 
     @Autowired
@@ -61,6 +62,7 @@ public class CircuitBreakingTextCompletionAdapter implements TextCompletionPort 
             throw new IllegalStateException("O serviço de análise está ocupado. Tente novamente em instantes.");
         }
         boolean probe = false;
+        long callGeneration = -1;
         try {
             synchronized (this) {
                 if (state == State.OPEN) {
@@ -71,19 +73,26 @@ public class CircuitBreakingTextCompletionAdapter implements TextCompletionPort 
                     if (!halfOpenProbe.compareAndSet(false, true)) throw circuitOpen();
                     probe = true;
                 }
+                callGeneration = generation;
             }
             String result = call.execute();
             synchronized (this) {
-                consecutiveFailures = 0;
-                state = State.CLOSED;
+                // A request that started before another call opened the circuit
+                // must not close that newer circuit when it eventually succeeds.
+                if (generation == callGeneration && state != State.OPEN) {
+                    consecutiveFailures = 0;
+                    state = State.CLOSED;
+                }
             }
             return result;
         } catch (CircuitOpenException e) {
             throw e;
         } catch (RuntimeException e) {
             synchronized (this) {
-                consecutiveFailures++;
-                if (probe || consecutiveFailures >= failureThreshold) openCircuit();
+                if (generation == callGeneration && state != State.OPEN) {
+                    consecutiveFailures++;
+                    if (probe || consecutiveFailures >= failureThreshold) openCircuit();
+                }
             }
             throw e;
         } finally {
@@ -93,6 +102,7 @@ public class CircuitBreakingTextCompletionAdapter implements TextCompletionPort 
     }
 
     private synchronized void openCircuit() {
+        generation++;
         state = State.OPEN;
         openedAtMillis = clock.millis();
     }

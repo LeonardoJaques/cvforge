@@ -13,9 +13,9 @@ fail() { echo "CVForge deploy: $1" >&2; exit 1; }
 compose() { docker compose -f "$C" "$@"; }
 
 install_runtime_files() {
-  install -D -m 0644 "$S/deploy/docker-compose.server.yml" "$C" || fail "Could not install the versioned server Compose file."
-  install -D -m 0644 "$S/deploy/nginx/default.conf" "$NGINX_DIR/default.conf" || fail "Could not install the API router config."
   install -d -m 0755 "$NGINX_DIR"
+  install -D -m 0644 "$S/deploy/docker-compose.server.yml" "$C" || fail "Could not install the versioned server Compose file."
+  install -D -m 0644 "$S/deploy/nginx/default.conf.template" "$NGINX_DIR/default.conf.template" || fail "Could not install the API router config template."
   if [[ ! -f "$NGINX_DIR/upstream-active.conf" ]]; then
     install -m 0644 "$S/deploy/nginx/upstream-active.conf" "$NGINX_DIR/upstream-active.conf" || fail "Could not create the initial API upstream."
   fi
@@ -34,8 +34,11 @@ sync_source() {
 }
 
 validate() {
+  exec 9>/tmp/cvforge-red-green-deploy.lock
+  flock -n 9 || fail "Another deployment or rollback is running."
   sync_source origin/main
   compose config --quiet >/dev/null 2>&1 || fail "Compose validation failed."
+  compose config --format json | python3 -c 'import json,re,sys; token=json.load(sys.stdin)["services"]["api-router"]["environment"]["CVFORGE_PROXY_TOKEN"]; sys.exit(0 if re.fullmatch(r"[0-9a-f]{64}", token or "") else 1)' || fail "CVFORGE_PROXY_TOKEN must be 64 lowercase hex characters in the production .env."
   docker exec cvforge-db pg_isready -U cvforge -d cvforge >/dev/null 2>&1 || fail "Database is not healthy."
   echo "Red/green Compose and database are healthy."
 }
@@ -76,7 +79,7 @@ health_container() {
 router_health() {
   local n body
   for n in $(seq 1 30); do
-    body=$(docker exec cvforge-api-router wget -qO- http://127.0.0.1:8080/api/v1/health 2>/dev/null || true)
+    body=$(docker exec cvforge-api-router sh -c 'wget --header="X-Cvforge-Proxy-Token: $CVFORGE_PROXY_TOKEN" -qO- http://127.0.0.1:8080/api/v1/health' 2>/dev/null || true)
     if [[ "$body" == *'"status":"UP"'* && "$body" == *'"database":"connected"'* ]]; then
       return 0
     fi
@@ -119,6 +122,8 @@ restore_traffic() {
 }
 
 rollback() {
+  exec 9>/tmp/cvforge-red-green-deploy.lock
+  flock -n 9 || fail "Another deployment or rollback is running."
   [[ -f "$PREVIOUS" ]] || fail "No previous red/green slot is recorded."
   local target
   target=$(<"$PREVIOUS")
@@ -138,6 +143,7 @@ deploy() {
   [[ "$DEPLOY_COMMIT" =~ ^[0-9a-f]{40}$ ]] || fail "Invalid deployment commit."
   sync_source "$DEPLOY_COMMIT"
   compose config --quiet >/dev/null 2>&1 || fail "Compose validation failed."
+  compose config --format json | python3 -c 'import json,re,sys; token=json.load(sys.stdin)["services"]["api-router"]["environment"]["CVFORGE_PROXY_TOKEN"]; sys.exit(0 if re.fullmatch(r"[0-9a-f]{64}", token or "") else 1)' || fail "CVFORGE_PROXY_TOKEN must be 64 lowercase hex characters in the production .env."
   docker exec cvforge-db pg_isready -U cvforge -d cvforge >/dev/null 2>&1 || fail "Database is not healthy."
 
   local old target service container first_deploy
@@ -160,10 +166,14 @@ deploy() {
 
   compose build "$service" || fail "Candidate build or backend tests failed."
   compose up -d --no-deps --force-recreate "$service" || fail "Could not start the $target API candidate."
-  health_container "$container" || fail "The $target API candidate failed its readiness check; active traffic is unchanged."
+  if ! health_container "$container"; then
+    compose stop "$service" >/dev/null 2>&1 || true
+    fail "The $target API candidate failed its readiness check; it was stopped and active traffic is unchanged."
+  fi
 
   if ! set_upstream "$target" || ! router_health; then
     restore_traffic "$old" || fail "Previous slot failed after automatic traffic rollback."
+    compose stop "$service" >/dev/null 2>&1 || true
     fail "Candidate failed after traffic switch; traffic returned to $old."
   fi
 
@@ -173,6 +183,7 @@ deploy() {
     compose up -d --no-deps api-router || {
       export CVFORGE_API_ROUTER_PRIORITY=10
       compose up -d --no-deps api-router || true
+      compose stop "$service" >/dev/null 2>&1 || true
       fail "Could not promote the stable API router; the legacy route remains active."
     }
   fi
@@ -185,6 +196,7 @@ deploy() {
     restore_traffic "$old" || fail "Final health failed and traffic rollback could not be verified."
     printf '%s\n' "$target" > "$PREVIOUS.tmp" && mv -f "$PREVIOUS.tmp" "$PREVIOUS"
     printf '%s\n' "$old" > "$ACTIVE.tmp" && mv -f "$ACTIVE.tmp" "$ACTIVE"
+    compose stop "$service" >/dev/null 2>&1 || true
     fail "Final health failed; traffic returned to $old."
   }
   echo "Red/green deployment completed: $old -> $target ($DEPLOY_COMMIT)."

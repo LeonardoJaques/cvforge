@@ -44,7 +44,7 @@ class JobMatchControllerTest {
         logger.addAppender(appender);
         ResponseEntity<?> response;
         try {
-            response = controller.analyze(new JobMatchUseCases.Request(null, "PROFILE_PRIVATE", "JOB_PRIVATE", "pt"), "test-user");
+            response = controller.analyze(new JobMatchController.AnalyzeRequest(null, "PROFILE_PRIVATE", "JOB_PRIVATE", "pt"), "test-user");
         } finally {
             logger.detachAppender(appender);
             appender.stop();
@@ -71,7 +71,7 @@ class JobMatchControllerTest {
         logger.addAppender(appender);
         ResponseEntity<?> response;
         try {
-            response = controller.analyze(new JobMatchUseCases.Request(null, "PROFILE_PRIVATE", "JOB_PRIVATE", "pt"), "test-user");
+            response = controller.analyze(new JobMatchController.AnalyzeRequest(null, "PROFILE_PRIVATE", "JOB_PRIVATE", "pt"), "test-user");
         } finally {
             logger.detachAppender(appender);
             appender.stop();

@@ -31,9 +31,9 @@ Atualize primeiro o branch `main` no Gitea e sincronize o GitHub a partir dele.
 - **Análise de vagas:** OpenRouter, chamado somente pelo backend.
 - **Execução:** Docker Compose e Nginx; em produção, Traefik e autenticação centralizada. A imagem da API é compilada e executada com Java 27.
 
-O backend segue arquitetura hexagonal: controladores REST são adaptadores de entrada e chamam portas de entrada sem expor DTOs HTTP aos casos de uso. Currículos e comparações usam portas de persistência (`ResumeStore` e `JobComparisonStore`) implementadas pelos adaptadores JPA; OpenRouter e geração de PDF ficam atrás das portas `TextCompletionPort` e `PdfRenderingPort`. Os modelos `ResumeData` e `JobComparisonData` são independentes de JPA. Importação de arquivos também é um adaptador de saída. O benchmark de concorrência aplica Strategy para executar a mesma carga bloqueante com pool de threads tradicionais ou uma thread virtual por tarefa.
+O backend usa portas e adaptadores para persistência, IA e geração de PDF (`ResumeStore`, `JobComparisonStore`, `TextCompletionPort` e `PdfRenderingPort`), com modelos independentes de JPA. A separação hexagonal ainda não é completa: contratos e serviços de aplicação ainda dependem de tipos Jackson. A importação de arquivo é um adaptador de entrada. O benchmark de concorrência aplica Strategy para executar a mesma carga bloqueante com pool de threads tradicionais ou uma thread virtual por tarefa.
 
-A autenticação é delegada a um proxy confiável, que envia o cabeçalho `Remote-User`. A API só confia nesse cabeçalho quando a conexão vem do endereço configurado em `CVFORGE_TRUSTED_PROXY_IP`. Não exponha a API diretamente à Internet nem aceite esse cabeçalho de clientes sem autenticação.
+A autenticação é delegada ao Authelia pelo middleware `authelia-forwardauth` do Traefik, que substitui `Remote-User` pelos dados da resposta de autenticação. Em produção, o router Nginx aceita tráfego somente com o token de salto `CVFORGE_PROXY_TOKEN`, injetado pelo middleware Traefik que vem depois do Authelia; conexões diretas pela rede Docker compartilhada são recusadas. A API também só confia em `Remote-User` quando a conexão vem do endereço configurado em `CVFORGE_TRUSTED_PROXY_IP`. Gere um token de 64 caracteres hexadecimais (`openssl rand -hex 32`) e configure-o somente no `.env` privado do servidor. Não o grave no Git nem exponha a API diretamente à Internet.
 
 Os currículos e as comparações são armazenados no PostgreSQL configurado pelo operador. Quando a análise por IA é usada, o backend envia à OpenRouter o conteúdo necessário para essa análise.
 
@@ -57,7 +57,7 @@ Para validar os serviços separadamente, use Java 27 e Maven no backend e Node.j
 
 ## Deploy no servidor
 
-O job manual `cvforge-deploy` do Jenkins busca o branch `main` do Gitea e implanta o commit obtido nessa execução. Ele valida o Compose e o banco, compila e testa API e frontend, atualiza somente esses dois serviços e verifica a saúde. Se o rollout falhar, tenta restaurar as imagens anteriores. O serviço de banco não é reiniciado pelo job.
+O deploy red/green valida o Compose, o token `CVFORGE_PROXY_TOKEN` (64 caracteres hexadecimais) e o banco, compila e testa a API, inicia um candidato e só troca o upstream depois que ele passa na verificação de saúde. Deploy e rollback compartilham um lock; candidatos que falham na prontidão são parados. O serviço de banco não é reiniciado pelo rollout.
 
 A geração da prévia recebe uma revisão extra quando a pontuação fica abaixo de 70%. A pontuação não força alterações: qualquer texto novo precisa continuar apoiado por fatos do currículo. O cache da prévia é específico para o currículo, a vaga e a análise salva.
 
@@ -75,8 +75,8 @@ It supports six PDF layouts, Portuguese and English, saved job comparisons, and 
 
 **Gitea is the canonical source.** Update its `main` branch first, then synchronize the public copy at [LeonardoJaques/cvforge](https://github.com/LeonardoJaques/cvforge).
 
-Build the API with Java 27 (the Dockerfile provides this toolchain), copy `.env.example` to `.env`, replace all placeholders, configure a trusted authenticated reverse proxy that sets `Remote-User`, and run `docker compose up --build -d`. The sample Compose file expects an external Docker network named `web`. Do not expose the API directly to the Internet. The API health endpoint is `/api/v1/health`.
+Build the API with Java 27 (the Dockerfile provides this toolchain), copy `.env.example` to `.env`, replace all placeholders, configure a trusted authenticated reverse proxy that sets `Remote-User`, and run `docker compose up --build -d`. The production router keeps the Traefik `authelia-forwardauth` middleware and requires a separate 64-character hex `CVFORGE_PROXY_TOKEN` injected after Authelia; set it only in the server's private `.env` (`openssl rand -hex 32`), never in Git. The sample Compose file expects an external Docker network named `web`. Do not expose the API directly to the Internet. The API health endpoint is `/api/v1/health`.
 
-The manual Jenkins job `cvforge-deploy` checks out the Gitea `main` branch and deploys the exact commit used by that build. It validates Compose and the database, builds and tests the API and frontend, updates only those two services, checks health, and attempts rollback on failure. It does not restart PostgreSQL.
+The red/green deployment validates Compose, the private `CVFORGE_PROXY_TOKEN`, and database health before building a candidate. It switches traffic only after candidate health succeeds, serializes deploy and rollback, and stops a failed candidate. It does not restart PostgreSQL.
 
 This project is licensed under the **PolyForm Noncommercial License 1.0.0**. Commercial use requires prior written permission from the maintainer.

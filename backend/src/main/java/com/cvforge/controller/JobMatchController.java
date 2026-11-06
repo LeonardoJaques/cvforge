@@ -36,9 +36,13 @@ public class JobMatchController {
     }
 
     @PostMapping("/analyze")
-    public ResponseEntity<?> analyze(@RequestBody JobMatchUseCases.Request request,
+    public ResponseEntity<?> analyze(@RequestBody AnalyzeRequest request,
                                      @RequestHeader(value = "Remote-User", required = false, defaultValue = "anonimo") String userId) {
-        try { return ResponseEntity.ok(jobMatch.analyze(request, userId)); }
+        try {
+            JobMatchUseCases.Request command = request == null ? null
+                    : new JobMatchUseCases.Request(request.resumeId(), request.profileText(), request.jobText(), request.language());
+            return ResponseEntity.ok(jobMatch.analyze(command, userId));
+        }
         catch (IllegalArgumentException e) {
             log.warn("CVFORGE_JOB_ANALYSIS_REJECTED reason={}", safeLogMessage(e.getMessage()));
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
@@ -125,6 +129,7 @@ public class JobMatchController {
         } catch (Exception e) { throw new IllegalStateException("Saved comparison JSON is invalid.", e); }
     }
 
+    public record AnalyzeRequest(Long resumeId, String profileText, String jobText, String language) { }
     public record SaveRequest(Long resumeId, String profileLabel, String jobText, JsonNode result, String language) { }
     public record SavePreviewRequest(String token) { }
     public record ComparisonResponse(Long id, Long resumeId, String profileLabel, String jobText, JsonNode result, String language, java.time.LocalDateTime createdAt, Long tailoredResumeId) { }

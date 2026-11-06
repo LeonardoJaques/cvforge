@@ -1,6 +1,6 @@
 package com.cvforge.service;
 
-import com.cvforge.adapter.out.file.ResumeImportAdapter;
+import com.cvforge.adapter.in.file.ResumeImportAdapter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.pdfbox.pdmodel.PDDocument;

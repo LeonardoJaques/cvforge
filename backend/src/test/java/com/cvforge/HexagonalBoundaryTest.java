@@ -21,6 +21,12 @@ class HexagonalBoundaryTest {
     }
 
     @Test
+    void jobMatchControllerMapsItsHttpDtoInsteadOfBindingTheUseCaseRequest() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/com/cvforge/controller/JobMatchController.java"));
+        assertFalse(source.contains("@RequestBody JobMatchUseCases.Request"));
+    }
+
+    @Test
     void applicationCannotDependOnTransportOrConcreteAdapters() throws Exception {
         Path application = Path.of("src/main/java/com/cvforge/application");
         try (var files = Files.walk(application)) {
@@ -33,4 +39,5 @@ class HexagonalBoundaryTest {
             }
         }
     }
+
 }

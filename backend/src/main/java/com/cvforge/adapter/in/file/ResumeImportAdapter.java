@@ -1,4 +1,4 @@
-package com.cvforge.adapter.out.file;
+package com.cvforge.adapter.in.file;
 
 import com.cvforge.application.port.in.ResumeImportUseCases;
 import com.cvforge.application.model.ImportedResume;

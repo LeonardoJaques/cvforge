@@ -7,6 +7,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -58,6 +63,46 @@ class CircuitBreakingTextCompletionAdapterTest {
         assertThrows(IllegalStateException.class, () -> breaker.complete("s", "u", 10));
         assertEquals("ok", breaker.complete("s", "u", 10));
         assertEquals("CLOSED", breaker.stateName());
+    }
+
+    @Test
+    void staleInFlightSuccessCannotCloseCircuitOpenedByAnotherCall() throws Exception {
+        CountDownLatch slowCallStarted = new CountDownLatch(1);
+        CountDownLatch releaseSlowCall = new CountDownLatch(1);
+        TextCompletionPort provider = new TextCompletionPort() {
+            @Override public String complete(String system, String user, int tokens) {
+                if ("slow".equals(user)) {
+                    slowCallStarted.countDown();
+                    try {
+                        if (!releaseSlowCall.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("timed out");
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(e);
+                    }
+                    return "ok";
+                }
+                throw new IllegalStateException("provider unavailable");
+            }
+            @Override public String complete(String system, String user, int tokens, String model) {
+                return complete(system, user, tokens);
+            }
+        };
+        CircuitBreakingTextCompletionAdapter breaker = new CircuitBreakingTextCompletionAdapter(provider, 1,
+                Duration.ofSeconds(30), 2, Clock.systemUTC());
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<String> slowSuccess = executor.submit(() -> breaker.complete("s", "slow", 10));
+            assertTrue(slowCallStarted.await(5, TimeUnit.SECONDS));
+            assertThrows(IllegalStateException.class, () -> breaker.complete("s", "fail", 10));
+            assertEquals("OPEN", breaker.stateName());
+
+            releaseSlowCall.countDown();
+            assertEquals("ok", slowSuccess.get(5, TimeUnit.SECONDS));
+            assertEquals("OPEN", breaker.stateName());
+        } finally {
+            releaseSlowCall.countDown();
+            executor.shutdownNow();
+        }
     }
 
     private static final class MutableClock extends Clock {

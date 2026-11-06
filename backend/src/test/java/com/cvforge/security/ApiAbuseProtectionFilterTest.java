@@ -37,7 +37,7 @@ class ApiAbuseProtectionFilterTest {
 
     @Test
     void concurrentVirtualRequestsCannotExceedBucketCapacity() throws Exception {
-        PerKeyTokenBucket limiter = new PerKeyTokenBucket(40, java.time.Duration.ofSeconds(1), 100);
+        PerKeyTokenBucket limiter = new PerKeyTokenBucket(40, 40, java.time.Duration.ofSeconds(1), 100);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var start = new java.util.concurrent.CountDownLatch(1);
             var results = new java.util.ArrayList<java.util.concurrent.Future<Boolean>>();
@@ -52,5 +52,46 @@ class ApiAbuseProtectionFilterTest {
             for (var result : results) if (result.get(5, TimeUnit.SECONDS)) admitted++;
             assertEquals(40, admitted);
         }
+    }
+
+    @Test
+    void configuredQuotaRefillsTheConfiguredNumberOfTokensPerWindow() {
+        PerKeyTokenBucket limiter = new PerKeyTokenBucket(30, 30, java.time.Duration.ofSeconds(2), 100);
+        for (int i = 0; i < 30; i++) assertTrue(limiter.tryAcquire("user", 1L));
+        assertFalse(limiter.tryAcquire("user", 1L));
+        for (int i = 0; i < 30; i++) assertTrue(limiter.tryAcquire("user", 2_000_000_001L));
+        assertFalse(limiter.tryAcquire("user", 2_000_000_001L));
+        assertEquals(2, limiter.retryAfterSeconds("user", 2_000_000_001L));
+    }
+
+    @Test
+    void anonymousRequestsAndHealthProbesDoNotConsumeAuthenticatedQuota() throws Exception {
+        SecurityContextHolder.clearContext();
+        ApiAbuseProtectionFilter filter = new ApiAbuseProtectionFilter();
+        for (int i = 0; i < 40; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/health");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> ((MockHttpServletResponse) res).setStatus(200));
+            assertEquals(200, response.getStatus());
+        }
+        for (int i = 0; i < 8; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/jobs/analyze");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> ((MockHttpServletResponse) res).setStatus(200));
+            assertEquals(200, response.getStatus());
+        }
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated("leonardo", null, List.of()));
+        for (int i = 0; i < 5; i++) {
+            MockHttpServletRequest authenticatedRequest = new MockHttpServletRequest("POST", "/api/v1/jobs/analyze");
+            MockHttpServletResponse authenticatedResponse = new MockHttpServletResponse();
+            filter.doFilter(authenticatedRequest, authenticatedResponse,
+                    (req, res) -> ((MockHttpServletResponse) res).setStatus(200));
+            assertEquals(200, authenticatedResponse.getStatus());
+        }
+        MockHttpServletRequest limitedRequest = new MockHttpServletRequest("POST", "/api/v1/jobs/analyze");
+        MockHttpServletResponse limitedResponse = new MockHttpServletResponse();
+        filter.doFilter(limitedRequest, limitedResponse, (req, res) -> fail("limited request should not continue"));
+        assertEquals(429, limitedResponse.getStatus());
     }
 }
