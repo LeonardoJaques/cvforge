@@ -21,6 +21,13 @@
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": ["zone.js"],
+            "assets": [
+              {
+                "glob": "favicon.svg",
+                "input": "src/assets",
+                "output": "assets"
+              }
+            ],
             "styles": ["src/styles.scss"],
             "scripts": [],
             "tsConfig": "tsconfig.json"
