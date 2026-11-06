@@ -4,6 +4,7 @@ import com.cvforge.application.port.in.ComparisonResumePdfUseCases;
 import com.cvforge.application.port.in.JobComparisonUseCases;
 import com.cvforge.application.port.in.JobMatchUseCases;
 import com.cvforge.application.port.in.ProfileTextImportUseCases;
+import com.cvforge.application.port.in.ResumeImportUseCases;
 import com.cvforge.application.port.in.ResumePdfUseCases;
 import com.cvforge.application.port.in.ResumeUseCases;
 import com.cvforge.application.port.out.JobComparisonStore;

@@ -21,17 +21,24 @@ public class ApplicationTransactionConfiguration {
     DefaultPointcutAdvisor applicationServiceTransactions(PlatformTransactionManager transactionManager) {
         RuleBasedTransactionAttribute write = new RuleBasedTransactionAttribute();
         write.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+        write.setReadOnly(false);
 
         RuleBasedTransactionAttribute readOnly = new RuleBasedTransactionAttribute();
         readOnly.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
         readOnly.setReadOnly(true);
 
         NameMatchTransactionAttributeSource attributes = new NameMatchTransactionAttributeSource();
-        attributes.setDefaultTransactionAttribute(write);
-        attributes.addTransactionalMethod("get*", readOnly);
-        attributes.addTransactionalMethod("search*", readOnly);
-        attributes.addTransactionalMethod("count*", readOnly);
-        attributes.addTransactionalMethod("list*", readOnly);
+        attributes.addTransactionalMethod("getAllResumes", readOnly);
+        attributes.addTransactionalMethod("getResumeById", readOnly);
+        attributes.addTransactionalMethod("getResumesByLayout", readOnly);
+        attributes.addTransactionalMethod("searchByTitle", readOnly);
+        attributes.addTransactionalMethod("countByUserId", readOnly);
+        attributes.addTransactionalMethod("list", readOnly);
+        attributes.addTransactionalMethod("createResume", write);
+        attributes.addTransactionalMethod("updateResume", write);
+        attributes.addTransactionalMethod("deleteResume", write);
+        attributes.addTransactionalMethod("save", write);
+        attributes.addTransactionalMethod("delete", write);
 
         NameMatchMethodPointcut pointcut = new NameMatchMethodPointcut();
         pointcut.setClassFilter(type -> type == ResumeApplicationService.class
