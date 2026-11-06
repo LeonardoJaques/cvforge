@@ -28,6 +28,8 @@ class HexagonalBoundaryTest {
                 String source = Files.readString(file);
                 assertFalse(source.contains("com.cvforge.controller."), file + " depends on a web adapter");
                 assertFalse(source.contains("com.cvforge.adapter."), file + " depends on a concrete adapter");
+                assertFalse(source.contains("org.springframework."), file + " depends on the Spring framework");
+                assertFalse(source.contains("jakarta."), file + " depends on Jakarta framework APIs");
             }
         }
     }

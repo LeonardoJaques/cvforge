@@ -7,11 +7,9 @@ import com.cvforge.application.model.ImportedResume;
 import com.cvforge.application.port.in.ProfileTextImportUseCases;
 import com.cvforge.application.port.in.ResumeImportUseCases;
 import com.cvforge.application.port.out.TextCompletionPort;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-@Service
 public class ProfileTextImportApplicationService implements ProfileTextImportUseCases {
     private final TextCompletionPort openRouter;
     private final ResumeImportUseCases resumeImports;

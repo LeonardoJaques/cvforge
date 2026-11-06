@@ -15,8 +15,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 import java.text.Normalizer;
 import java.util.HashSet;
 import java.util.Locale;
@@ -31,7 +29,6 @@ import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Service
 public class ComparisonResumePdfApplicationService implements ComparisonResumePdfUseCases {
     private final JobComparisonStore comparisons;
     private final ResumeStore resumes;
@@ -42,8 +39,7 @@ public class ComparisonResumePdfApplicationService implements ComparisonResumePd
     private static final int REVIEW_THRESHOLD = 70;
     private final Map<String, PreviewDraft> drafts = new ConcurrentHashMap<>();
     public ComparisonResumePdfApplicationService(JobComparisonStore comparisons, ResumeStore resumes, TextCompletionPort ai,
-            PdfRenderingPort pdf, ObjectMapper mapper,
-            @Value("${openrouter.resume-model:deepseek/deepseek-chat}") String model) {
+            PdfRenderingPort pdf, ObjectMapper mapper, String model) {
         this.comparisons=comparisons; this.resumes=resumes; this.ai=ai; this.pdf=pdf; this.mapper=mapper; this.model=model;
     }
     @Override

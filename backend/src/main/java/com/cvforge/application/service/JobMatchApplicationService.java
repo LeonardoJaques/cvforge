@@ -8,7 +8,6 @@ import com.cvforge.application.model.ResumeData;
 import com.cvforge.application.port.in.ResumeUseCases;
 import com.cvforge.application.port.out.TextCompletionPort;
 import com.cvforge.application.port.in.JobMatchUseCases;
-import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
 import java.util.HashSet;
@@ -17,7 +16,6 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-@Service
 public class JobMatchApplicationService implements JobMatchUseCases {
     static final int MAX_COMPLETION_TOKENS = 6000;
     static final int MAX_JOB_WORDS = 3000;
